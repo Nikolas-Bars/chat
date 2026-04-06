@@ -1,0 +1,59 @@
+# Статический фронт на GitHub Pages: https://<user>.github.io/<repo>/
+# 1) Settings → Pages → Build: GitHub Actions
+# 2) Settings → Secrets → Actions: VITE_API_URL = https://<твой-бэк>.onrender.com (без / в конце)
+
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chat-front/**'
+      - '.github/workflows/deploy-frontend-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: chat-front/yarn.lock
+
+      - name: Install & build
+        working-directory: chat-front
+        env:
+          # Имя репозитория = сегмент пути на Pages (репо chat → /chat/)
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          yarn install --frozen-lockfile
+          yarn build-only
+          cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: chat-front/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
