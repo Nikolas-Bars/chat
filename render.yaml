@@ -1,0 +1,54 @@
+# Только бэкенд: монорепо, корень сервиса — chat-back (см. rootDir).
+# Фронт разворачивай отдельно (другой Web Service / Static / Vercel) и укажи его URL в CORS_ORIGINS и PUBLIC_APP_URL.
+#
+# Render не даёт MariaDB/MySQL: создай БД снаружи (Railway, Aiven, PlanetScale MySQL, VPS и т.д.),
+# затем в Dashboard → Environment задай DB_* и остальные переменные (sync: false ниже).
+
+services:
+  - type: web
+    name: chat-backend
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: chat-back
+    buildCommand: yarn install && yarn build
+    preDeployCommand: yarn migration:run:prod
+    startCommand: yarn start:prod
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      # БД (внешняя MySQL/MariaDB-совместимая)
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      # Для облачных MySQL часто нужно: DB_SSL=true (или оставь пустым для без SSL)
+      - key: DB_SSL
+        sync: false
+      # URL фронта (письма подтверждения, CORS)
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      # SMTP (Gmail и др.)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
