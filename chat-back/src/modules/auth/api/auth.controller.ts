@@ -16,6 +16,25 @@ import { RegistrationUserPipe } from './pipes/registration.user.pipe';
 import { LoginInputDto } from './input-dto/login.input.dto';
 import { ConfirmationEmailInputDto } from '../dto/confirmation.email.input.dto';
 
+function cookieOptions(): {
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'lax' | 'strict' | 'none';
+  path: string;
+} {
+  const isProd = process.env.NODE_ENV === 'production';
+  /** Кросс-сайт (например GitHub Pages → Render): нужен `none` + Secure */
+  const sameSite =
+    (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none' | undefined) ??
+    (isProd ? 'none' : 'lax');
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite,
+    path: '/',
+  };
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -48,12 +67,7 @@ export class AuthController {
       user.login,
     );
 
-    const cookieOpts = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-    };
+    const cookieOpts = cookieOptions();
 
     res.cookie('accessToken', tokens.accessToken, {
       ...cookieOpts,
@@ -71,13 +85,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   logout(@Res({ passthrough: true }) res: Response): void {
-    const secure = process.env.NODE_ENV === 'production';
-    const cookieOpts = {
-      httpOnly: true,
-      secure,
-      sameSite: 'lax' as const,
-      path: '/',
-    };
+    const cookieOpts = cookieOptions();
     res.clearCookie('accessToken', cookieOpts);
     res.clearCookie('refreshToken', cookieOpts);
   }
