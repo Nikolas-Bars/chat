@@ -1,4 +1,4 @@
-import { IsString, Length } from 'class-validator';
+import { IsString } from 'class-validator';
 
 export class LoginInputDto {
   @IsString({ message: 'loginOrEmail must be a string' })
