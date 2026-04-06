@@ -3,9 +3,13 @@ import { join } from 'path';
 import { DataSourceOptions } from 'typeorm';
 
 export function getDataSourceOptions(): DataSourceOptions {
+  /** Railway и др.: часто «self-signed certificate in chain» при rejectUnauthorized: true */
   const ssl =
     process.env.DB_SSL === 'true' || process.env.DB_SSL === '1'
-      ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+      ? {
+          rejectUnauthorized:
+            process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true',
+        }
       : undefined;
 
   return {
