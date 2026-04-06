@@ -3,9 +3,40 @@ import { Injectable } from '@nestjs/common';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 
+/** На Render исходящие SMTP (465/587) часто блокируются — используй HTTPS API (Resend). */
 @Injectable()
 export class EmailExternalService {
   constructor() {}
+
+  private async sendViaResend(msgData: SendEmailType): Promise<boolean> {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    if (!apiKey) {
+      return false;
+    }
+    const from =
+      process.env.RESEND_FROM?.trim() ||
+      process.env.SMTP_FROM?.trim() ||
+      'onboarding@resend.dev';
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from,
+        to: [msgData.path],
+        subject: msgData.subject,
+        html: msgData.msg,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('Resend API error', res.status, text);
+      return false;
+    }
+    return true;
+  }
 
   private createTransport(): Transporter | null {
     const host = process.env.SMTP_HOST;
@@ -26,6 +57,10 @@ export class EmailExternalService {
 
   async sendMessage(msgData: SendEmailType): Promise<boolean> {
     try {
+      if (process.env.RESEND_API_KEY?.trim()) {
+        return await this.sendViaResend(msgData);
+      }
+
       const transport = this.createTransport();
       if (!transport) {
         if (process.env.NODE_ENV !== 'production') {
@@ -38,7 +73,7 @@ export class EmailExternalService {
           return true;
         }
         console.error(
-          'SMTP не настроен: задайте SMTP_HOST, SMTP_USER, SMTP_PASS',
+          'Почта не настроена: на проде задайте RESEND_API_KEY (рекомендуется на Render) или SMTP_*',
         );
         return false;
       }
