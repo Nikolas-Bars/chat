@@ -34,7 +34,7 @@ services:
         sync: false
       - key: DB_NAME
         sync: false
-      # Для облачных MySQL часто нужно: DB_SSL=true (или оставь пустым для без SSL)
+      # Облачный MySQL (Railway): DB_SSL=true; проверка сертификата — только если DB_SSL_REJECT_UNAUTHORIZED=true
       - key: DB_SSL
         sync: false
       # URL фронта (письма подтверждения, CORS)
