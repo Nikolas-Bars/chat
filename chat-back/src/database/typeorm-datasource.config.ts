@@ -3,6 +3,11 @@ import { join } from 'path';
 import { DataSourceOptions } from 'typeorm';
 
 export function getDataSourceOptions(): DataSourceOptions {
+  const ssl =
+    process.env.DB_SSL === 'true' || process.env.DB_SSL === '1'
+      ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+      : undefined;
+
   return {
     type: 'mariadb',
     host: process.env.DB_HOST ?? 'localhost',
@@ -11,6 +16,7 @@ export function getDataSourceOptions(): DataSourceOptions {
     password: process.env.DB_PASSWORD ?? 'chat_pass',
     database: process.env.DB_NAME ?? 'chat_db',
     synchronize: false,
+    ssl,
     entities: [join(__dirname, '..', 'modules', '**', '*.entity.{ts,js}')],
     migrations: [join(__dirname, '..', 'migrations', '*.{ts,js}')],
   };
