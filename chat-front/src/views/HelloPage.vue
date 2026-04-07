@@ -9,6 +9,8 @@ const isLoggingOut = ref(false)
 const errorMessage = ref('')
 const isBootLoading = ref(true)
 const currentUserId = ref<number | null>(null)
+const myLogin = ref('')
+const isSidebarOpen = ref(false)
 
 type ChatMessage = {
   id: number
@@ -67,8 +69,9 @@ async function fetchMe() {
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Сессия недействительна')
-  const me = (await res.json()) as { userId: number }
+  const me = (await res.json()) as { userId: number; login?: string }
   currentUserId.value = me.userId
+  myLogin.value = me.login ?? ''
 }
 
 async function fetchChats() {
@@ -127,6 +130,7 @@ function connectRealtime() {
 async function selectChat(chatId: number) {
   selectedChatId.value = chatId
   await fetchMessages(chatId)
+  isSidebarOpen.value = false
 }
 
 async function createChatWith(userId: number) {
@@ -142,6 +146,10 @@ async function createChatWith(userId: number) {
   searchResults.value = []
   search.value = ''
   await selectChat(chat.id)
+}
+
+function toggleSidebar() {
+  isSidebarOpen.value = !isSidebarOpen.value
 }
 
 async function runSearch() {
@@ -235,18 +243,42 @@ async function logout() {
 </script>
 
 <template>
-  <div class="grid gap-4 lg:grid-cols-[320px,1fr]">
-    <aside class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div class="mb-3 flex items-center justify-between">
-        <h1 class="text-lg font-semibold">Чаты</h1>
+  <div class="relative">
+    <div class="mb-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex items-center gap-3">
         <button
           type="button"
-          :disabled="isLoggingOut"
-          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
-          @click="logout"
+          class="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+          @click="toggleSidebar"
         >
-          {{ isLoggingOut ? 'Выход…' : 'Выйти' }}
+          ☰
         </button>
+        <div class="text-sm text-slate-500 dark:text-slate-400">Мой логин:</div>
+        <div class="text-sm font-semibold">{{ myLogin || '—' }}</div>
+      </div>
+      <button
+        type="button"
+        :disabled="isLoggingOut"
+        class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+        @click="logout"
+      >
+        {{ isLoggingOut ? 'Выход…' : 'Выйти' }}
+      </button>
+    </div>
+
+    <div
+      v-if="isSidebarOpen"
+      class="fixed inset-0 z-20 bg-black/40"
+      @click="isSidebarOpen = false"
+    />
+
+    <aside
+      class="fixed inset-y-0 left-0 z-30 w-[320px] overflow-y-auto border-r border-slate-200 bg-white p-4 shadow-xl transition-transform dark:border-slate-800 dark:bg-slate-900"
+      :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+    >
+      <div class="mb-3 flex items-center justify-between">
+        <h1 class="text-lg font-semibold">Чаты</h1>
+        <button class="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100" @click="isSidebarOpen = false">✕</button>
       </div>
 
       <div class="mb-3">
