@@ -14,7 +14,8 @@ services:
     # Иначе при NODE_ENV=production yarn не ставит devDependencies → nest: not found
     buildCommand: yarn install --production=false && yarn build
     preDeployCommand: yarn migration:run:prod
-    startCommand: yarn start:prod
+    # Страховка: если preDeploy в Render по какой-то причине не сработал, миграции всё равно применятся.
+    startCommand: yarn migration:run:prod && yarn start:prod
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
