@@ -59,67 +59,55 @@ async function goToRegistration() {
 </script>
 
 <template>
-  <main class="login-page">
-    <form class="login-form" @submit.prevent="submitLogin">
-      <h1>Логин</h1>
+  <div class="grid place-items-center py-10">
+    <form
+      class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      @submit.prevent="submitLogin"
+    >
+      <h1 class="text-2xl font-semibold">Логин</h1>
 
-      <label>
+      <label class="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200">
         Логин или email
-        <input v-model="loginOrEmail" type="text" required />
+        <input
+          v-model="loginOrEmail"
+          class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+          type="text"
+          required
+        />
       </label>
 
-      <label>
+      <label class="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200">
         Пароль
-        <input v-model="password" type="password" required />
+        <input
+          v-model="password"
+          class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+          type="password"
+          required
+        />
       </label>
 
-      <button :disabled="isLoading" type="submit">
+      <button
+        :disabled="isLoading"
+        class="mt-6 w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+        type="submit"
+      >
         {{ isLoading ? 'Входим...' : 'Войти' }}
       </button>
 
-      <button class="secondary" type="button" @click="goToRegistration">
+      <button
+        class="mt-3 w-full rounded-xl border border-slate-200 bg-transparent px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
+        type="button"
+        @click="goToRegistration"
+      >
         Регистрация
       </button>
 
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p
+        v-if="errorMessage"
+        class="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+      >
+        {{ errorMessage }}
+      </p>
     </form>
-  </main>
+  </div>
 </template>
-
-<style scoped>
-.login-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  font-family: Arial, sans-serif;
-}
-
-.login-form {
-  width: 320px;
-  display: grid;
-  gap: 12px;
-}
-
-label {
-  display: grid;
-  gap: 6px;
-}
-
-input {
-  padding: 8px;
-}
-
-button {
-  padding: 10px;
-  cursor: pointer;
-}
-
-.secondary {
-  background: transparent;
-  border: 1px solid #aaa;
-}
-
-.error {
-  color: #c52222;
-}
-</style>

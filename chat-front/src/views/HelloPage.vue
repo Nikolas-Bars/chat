@@ -32,38 +32,25 @@ async function logout() {
 </script>
 
 <template>
-  <main class="hello-page">
-    <div class="hello-card">
-      <h1>Привет, Вася</h1>
-      <button type="button" :disabled="isLoggingOut" @click="logout">
+  <div class="grid place-items-center py-10">
+    <div
+      class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h1 class="text-2xl font-semibold">Привет</h1>
+      <button
+        type="button"
+        :disabled="isLoggingOut"
+        class="mt-6 w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+        @click="logout"
+      >
         {{ isLoggingOut ? 'Выходим…' : 'Выйти' }}
       </button>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p
+        v-if="errorMessage"
+        class="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+      >
+        {{ errorMessage }}
+      </p>
     </div>
-  </main>
+  </div>
 </template>
-
-<style scoped>
-.hello-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  font-family: Arial, sans-serif;
-}
-
-.hello-card {
-  display: grid;
-  gap: 16px;
-  justify-items: center;
-}
-
-button {
-  padding: 10px 20px;
-  cursor: pointer;
-}
-
-.error {
-  color: #c52222;
-  margin: 0;
-}
-</style>

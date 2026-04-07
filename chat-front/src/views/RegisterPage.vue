@@ -119,141 +119,151 @@ async function backToLogin() {
 </script>
 
 <template>
-  <main class="register-page">
-    <form class="register-form" @submit.prevent="submitRegister">
-      <h1>Регистрация</h1>
+  <div class="grid place-items-center py-10">
+    <form
+      class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      @submit.prevent="submitRegister"
+    >
+      <h1 class="text-2xl font-semibold">Регистрация</h1>
 
-      <label>
-        Имя
-        <input v-model="name" type="text" required maxlength="255" />
-      </label>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Имя
+          <input
+            v-model="name"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="text"
+            required
+            maxlength="255"
+          />
+        </label>
 
-      <label>
-        Фамилия
-        <input v-model="lastName" type="text" required maxlength="255" />
-      </label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Фамилия
+          <input
+            v-model="lastName"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="text"
+            required
+            maxlength="255"
+          />
+        </label>
+      </div>
 
-      <label>
-        Возраст
-        <input
-          v-model.number="age"
-          type="number"
-          min="0"
-          step="1"
-          required
-        />
-      </label>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Возраст
+          <input
+            v-model.number="age"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="number"
+            min="0"
+            step="1"
+            required
+          />
+        </label>
 
-      <label>
-        Email
-        <input v-model="email" type="email" required maxlength="255" />
-      </label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Email
+          <input
+            v-model="email"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="email"
+            required
+            maxlength="255"
+          />
+        </label>
+      </div>
 
-      <label>
+      <label class="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200">
         Телефон
-        <input v-model="phone" type="text" required maxlength="255" />
-      </label>
-
-      <label>
-        Пароль (6–20 символов)
         <input
-          v-model="password"
-          type="password"
+          v-model="phone"
+          class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+          type="text"
           required
-          minlength="6"
-          maxlength="20"
-          autocomplete="new-password"
+          maxlength="255"
         />
       </label>
 
-      <label>
-        Пароль ещё раз
-        <input
-          v-model="passwordConfirm"
-          type="password"
-          required
-          minlength="6"
-          maxlength="20"
-          autocomplete="new-password"
-        />
-      </label>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Пароль (6–20 символов)
+          <input
+            v-model="password"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="password"
+            required
+            minlength="6"
+            maxlength="20"
+            autocomplete="new-password"
+          />
+        </label>
 
-      <label class="optional">
-        Должность
-        <input v-model="jobTitle" type="text" maxlength="255" />
-      </label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Пароль ещё раз
+          <input
+            v-model="passwordConfirm"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="password"
+            required
+            minlength="6"
+            maxlength="20"
+            autocomplete="new-password"
+          />
+        </label>
+      </div>
 
-      <label class="optional">
-        Компания
-        <input v-model="company" type="text" maxlength="255" />
-      </label>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Должность (необязательно)
+          <input
+            v-model="jobTitle"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="text"
+            maxlength="255"
+          />
+        </label>
 
-      <button :disabled="isLoading" type="submit">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">
+          Компания (необязательно)
+          <input
+            v-model="company"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:ring-slate-700"
+            type="text"
+            maxlength="255"
+          />
+        </label>
+      </div>
+
+      <button
+        :disabled="isLoading"
+        class="mt-6 w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+        type="submit"
+      >
         {{ isLoading ? 'Отправка…' : 'Зарегистрироваться' }}
       </button>
 
-      <button class="secondary" type="button" @click="backToLogin">
+      <button
+        class="mt-3 w-full rounded-xl border border-slate-200 bg-transparent px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
+        type="button"
+        @click="backToLogin"
+      >
         Уже есть аккаунт — войти
       </button>
 
-      <p v-if="successMessage" class="success">{{ successMessage }}</p>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p
+        v-if="successMessage"
+        class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+      >
+        {{ successMessage }}
+      </p>
+      <p
+        v-if="errorMessage"
+        class="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+      >
+        {{ errorMessage }}
+      </p>
     </form>
-  </main>
+  </div>
 </template>
-
-<style scoped>
-.register-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  font-family: Arial, sans-serif;
-  padding: 24px 12px;
-}
-
-.register-form {
-  width: min(100%, 400px);
-  display: grid;
-  gap: 12px;
-}
-
-h1 {
-  margin: 0 0 4px;
-  font-size: 1.5rem;
-}
-
-label {
-  display: grid;
-  gap: 6px;
-  font-size: 0.9rem;
-}
-
-label.optional {
-  opacity: 0.95;
-}
-
-input {
-  padding: 8px;
-}
-
-button {
-  padding: 10px;
-  cursor: pointer;
-}
-
-.secondary {
-  background: transparent;
-  border: 1px solid #aaa;
-}
-
-.error {
-  color: #c52222;
-  margin: 0;
-}
-
-.success {
-  color: #1b6e1b;
-  margin: 0;
-  line-height: 1.4;
-}
-</style>
