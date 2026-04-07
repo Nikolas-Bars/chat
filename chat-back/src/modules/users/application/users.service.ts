@@ -33,12 +33,20 @@ export class UsersService {
     return this.usersRepository.findByEmail(email);
   }
 
+  async findById(id: number): Promise<User | null> {
+    return this.usersRepository.findById(id);
+  }
+
   async findByEmailOrPhone(value: string): Promise<User | null> {
     return this.usersRepository.findByEmailOrPhone(value);
   }
 
   async findByConfirmationCode(code: string): Promise<User | null> {
     return this.usersRepository.findByConfirmationCode(code);
+  }
+
+  async searchByTerm(term: string, excludeUserId: number): Promise<User[]> {
+    return this.usersRepository.searchByTerm(term, excludeUserId);
   }
 
   async save(user: User): Promise<User> {

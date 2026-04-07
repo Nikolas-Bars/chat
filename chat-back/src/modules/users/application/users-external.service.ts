@@ -22,12 +22,20 @@ export class UsersExternalService {
     return this.usersService.findByEmail(email);
   }
 
+  async findById(id: number): Promise<User | null> {
+    return this.usersService.findById(id);
+  }
+
   async findByEmailOrPhone(value: string): Promise<User | null> {
     return this.usersService.findByEmailOrPhone(value);
   }
 
   async findByConfirmationCode(code: string): Promise<User | null> {
     return this.usersService.findByConfirmationCode(code);
+  }
+
+  async searchByTerm(term: string, excludeUserId: number): Promise<User[]> {
+    return this.usersService.searchByTerm(term, excludeUserId);
   }
 
   async save(user: User): Promise<User> {

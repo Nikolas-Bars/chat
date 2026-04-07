@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { getTypeOrmModuleOptions } from './database/typeorm-datasource.config';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ChatsModule } from './modules/chats/chats.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { AuthModule } from './modules/auth/auth.module';
     TypeOrmModule.forRoot(getTypeOrmModuleOptions()),
     UsersModule,
     AuthModule,
+    ChatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

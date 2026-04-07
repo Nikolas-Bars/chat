@@ -88,7 +88,7 @@ async function submitRegister() {
 
     if (response.status === 204) {
       successMessage.value =
-        'Аккаунт создан. Проверьте почту и подтвердите email по ссылке из письма, затем войдите.'
+        'Аккаунт создан. Теперь можно войти.'
       return
     }
 
