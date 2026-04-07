@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
     ],
   server: {
     proxy: {
-      '/auth': {
+      '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
   },
   preview: {
     proxy: {
-      '/auth': {
+      '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },

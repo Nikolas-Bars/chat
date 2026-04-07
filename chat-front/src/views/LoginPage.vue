@@ -38,6 +38,10 @@ async function submitLogin() {
       throw new Error(`Не удалось войти (код ${response.status})`)
     }
 
+    const tokens = (await response.json()) as { accessToken?: string }
+    if (tokens.accessToken) {
+      localStorage.setItem('accessToken', tokens.accessToken)
+    }
     await router.push('/hello')
   } catch (error) {
     if (error instanceof TypeError) {

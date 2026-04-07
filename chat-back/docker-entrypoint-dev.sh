@@ -1,5 +1,7 @@
 #!/bin/sh
 set -e
+echo "[entrypoint] yarn install..."
+yarn install --frozen-lockfile
 echo "[entrypoint] migrations..."
 yarn migration:run
 echo "[entrypoint] seed..."

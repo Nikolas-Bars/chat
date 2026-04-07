@@ -35,6 +35,12 @@ export class AuthService {
       emailConfirmationExpiresAt: expirationDate,
     });
 
+    // return this.emailExternalService.sendEmailConfirmationMassage({
+    //   path: body.email,
+    //   msg: '',
+    //   subject: 'Подтверждение регистрации',
+    //   code: confirmationCode,
+    // });
     // Временно отключаем подтверждение по email:
     // - не отправляем письмо
     // - сразу подтверждаем email, чтобы логин работал

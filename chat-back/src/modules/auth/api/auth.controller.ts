@@ -2,11 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   Res,
   UnauthorizedException,
+  UseGuards,
   UsePipes,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -15,6 +17,9 @@ import { RegistrationInputDto } from './input-dto/registration.input-dto';
 import { RegistrationUserPipe } from './pipes/registration.user.pipe';
 import { LoginInputDto } from './input-dto/login.input.dto';
 import { ConfirmationEmailInputDto } from '../dto/confirmation.email.input.dto';
+import { JwtAuthGuard } from '../infrastructure/guards/jwt-auth.guard';
+import { ExtractUserFromRequest } from '../decorators/extract-user-from-request.decorator';
+import { UserContextDto } from '../application/user-context.dto';
 
 function cookieOptions(): {
   httpOnly: boolean;
@@ -94,6 +99,16 @@ export class AuthController {
   @Post('registration-confirmation')
   async confirmationCode(@Body() body: ConfirmationEmailInputDto): Promise<void> {
     await this.authService.confirmCode(body.code);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  me(@ExtractUserFromRequest() user: UserContextDto) {
+    return {
+      userId: Number(user.userId),
+      login: user.login,
+      email: user.email,
+    };
   }
 
   // @HttpCode(204)
