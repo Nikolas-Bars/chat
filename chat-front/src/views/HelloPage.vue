@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { io, type Socket } from 'socket.io-client'
 import { apiUrl } from '../api/config'
 
 const router = useRouter()
@@ -49,6 +50,7 @@ const search = ref('')
 const searchResults = ref<UserSearchItem[]>([])
 const isSearching = ref(false)
 const isMessagesLoading = ref(false)
+const socket = ref<Socket | null>(null)
 
 const selectedChat = computed(() =>
   chats.value.find((c) => c.id === selectedChatId.value) ?? null,
@@ -80,6 +82,36 @@ async function fetchMessages(chatId: number) {
   } finally {
     isMessagesLoading.value = false
   }
+}
+
+function getRealtimeBaseUrl(): string {
+  const api = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
+  if (api) return api.replace(/\/$/, '')
+  const protocol = window.location.protocol === 'https:' ? 'https' : 'http'
+  return `${protocol}://${window.location.hostname}:3000`
+}
+
+function connectRealtime() {
+  const base = getRealtimeBaseUrl()
+  const token = localStorage.getItem('accessToken')
+  const s = io(`${base}/chats`, {
+    withCredentials: true,
+    auth: token ? { token } : undefined,
+  })
+  s.on('connect_error', () => {
+    // Не блокируем UI: realtime опционален, REST остаётся рабочим.
+  })
+  s.on('chat:updated', async () => {
+    await fetchChats()
+  })
+  s.on('message:new', async (payload: ChatMessage) => {
+    const exists = messages.value.some((m) => m.id === payload.id)
+    if (selectedChatId.value === payload.chatId && !exists) {
+      messages.value.push(payload)
+    }
+    await fetchChats()
+  })
+  socket.value = s
 }
 
 async function selectChat(chatId: number) {
@@ -148,6 +180,7 @@ onMounted(async () => {
     if (chats.value[0]) {
       await selectChat(chats.value[0].id)
     }
+    connectRealtime()
   } catch (e) {
     if (e instanceof Error) {
       errorMessage.value = e.message
@@ -157,6 +190,11 @@ onMounted(async () => {
   } finally {
     isBootLoading.value = false
   }
+})
+
+onUnmounted(() => {
+  socket.value?.disconnect()
+  socket.value = null
 })
 
 async function logout() {
@@ -170,6 +208,8 @@ async function logout() {
     if (!response.ok) {
       throw new Error(`Не удалось выйти (код ${response.status})`)
     }
+    localStorage.removeItem('accessToken')
+    socket.value?.disconnect()
     await router.push('/login')
   } catch (e) {
     if (e instanceof Error) {

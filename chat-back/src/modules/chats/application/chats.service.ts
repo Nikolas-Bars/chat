@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { UsersExternalService } from '../../users/application/users-external.service';
 import { ChatsRepository } from '../infrastructure/chats.repository';
 import { Chat } from '../domain/chat.entity';
+import { ChatsGateway } from '../api/chats.gateway';
 
 function sortPair(a: number, b: number): [number, number] {
   return a < b ? [a, b] : [b, a];
@@ -12,6 +13,7 @@ export class ChatsService {
   constructor(
     private readonly chatsRepository: ChatsRepository,
     private readonly usersExternalService: UsersExternalService,
+    private readonly chatsGateway: ChatsGateway,
   ) {}
 
   private ensureParticipant(chat: Chat, userId: number): void {
@@ -31,9 +33,11 @@ export class ChatsService {
     const [firstUserId, secondUserId] = sortPair(currentUserId, targetUserId);
     const existed = await this.chatsRepository.findDirectByPair(firstUserId, secondUserId);
     if (existed) {
+      this.chatsGateway.emitChatUpdated([currentUserId, targetUserId], existed.id);
       return this.mapChat(existed, currentUserId, null, target.id, target.name, target.lastName, target.email);
     }
     const created = await this.chatsRepository.createDirect(firstUserId, secondUserId);
+    this.chatsGateway.emitChatUpdated([currentUserId, targetUserId], created.id);
     return this.mapChat(created, currentUserId, null, target.id, target.name, target.lastName, target.email);
   }
 
@@ -102,13 +106,16 @@ export class ChatsService {
     const message = await this.chatsRepository.createMessage(chatId, currentUserId, content.trim());
     // Обновляем updatedAt чата как маркер последней активности.
     await this.chatsRepository.touch(chat);
-    return {
+    const payload = {
       id: message.id,
       chatId: message.chatId,
       senderId: message.senderId,
       content: message.content,
       createdAt: message.createdAt,
     };
+    this.chatsGateway.emitMessageNew([chat.firstUserId, chat.secondUserId], payload);
+    this.chatsGateway.emitChatUpdated([chat.firstUserId, chat.secondUserId], chat.id);
+    return payload;
   }
 
   private mapChat(
