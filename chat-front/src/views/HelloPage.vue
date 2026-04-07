@@ -52,12 +52,18 @@ const isSearching = ref(false)
 const isMessagesLoading = ref(false)
 const socket = ref<Socket | null>(null)
 
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem('accessToken')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 const selectedChat = computed(() =>
   chats.value.find((c) => c.id === selectedChatId.value) ?? null,
 )
 
 async function fetchMe() {
   const res = await fetch(apiUrl('/auth/me'), {
+    headers: authHeaders(),
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Сессия недействительна')
@@ -66,7 +72,10 @@ async function fetchMe() {
 }
 
 async function fetchChats() {
-  const res = await fetch(apiUrl('/chats'), { credentials: 'include' })
+  const res = await fetch(apiUrl('/chats'), {
+    headers: authHeaders(),
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error(`Не удалось загрузить чаты (${res.status})`)
   chats.value = (await res.json()) as ChatItem[]
 }
@@ -75,6 +84,7 @@ async function fetchMessages(chatId: number) {
   isMessagesLoading.value = true
   try {
     const res = await fetch(apiUrl(`/chats/${chatId}/messages`), {
+      headers: authHeaders(),
       credentials: 'include',
     })
     if (!res.ok) throw new Error(`Не удалось загрузить сообщения (${res.status})`)
@@ -122,7 +132,7 @@ async function selectChat(chatId: number) {
 async function createChatWith(userId: number) {
   const res = await fetch(apiUrl('/chats'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     credentials: 'include',
     body: JSON.stringify({ userId }),
   })
@@ -143,6 +153,7 @@ async function runSearch() {
   isSearching.value = true
   try {
     const res = await fetch(apiUrl(`/users/search?query=${encodeURIComponent(q)}`), {
+      headers: authHeaders(),
       credentials: 'include',
     })
     if (!res.ok) throw new Error(`Поиск недоступен (${res.status})`)
@@ -160,7 +171,7 @@ async function sendMessage() {
   try {
     const res = await fetch(apiUrl(`/chats/${selectedChatId.value}/messages`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       credentials: 'include',
       body: JSON.stringify({ content }),
     })
