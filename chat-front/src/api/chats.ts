@@ -8,6 +8,7 @@ export type ChatMessage = {
   content: string
   createdAt: string
   updatedAt?: string
+  readByPeer?: boolean
   reactions?: Array<{
     value: string
     count: number
@@ -29,6 +30,7 @@ export type ChatItem = {
     content: string
     createdAt: string
   }
+  unreadCount: number
 }
 
 export async function fetchChatsApi(): Promise<ChatItem[]> {
@@ -186,5 +188,19 @@ export async function deleteChatApi(chatId: number): Promise<void> {
     credentials: 'include',
   })
   if (!res.ok) throw new Error(`Не удалось удалить чат (${res.status})`)
+}
+
+export async function markChatReadApi(
+  chatId: number,
+  messageId: number,
+): Promise<{ chatId: number; readerUserId: number; lastReadMessageId: number }> {
+  const res = await fetch(apiUrl(`/chats/${chatId}/read`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    credentials: 'include',
+    body: JSON.stringify({ messageId }),
+  })
+  if (!res.ok) throw new Error(`Не удалось отметить чат прочитанным (${res.status})`)
+  return (await res.json()) as { chatId: number; readerUserId: number; lastReadMessageId: number }
 }
 
