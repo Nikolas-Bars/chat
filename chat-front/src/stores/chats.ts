@@ -52,6 +52,41 @@ export const useChatsStore = defineStore('chats', () => {
     chats.value.find((c) => c.id === selectedChatId.value) ?? null,
   )
 
+  function moveChatToTop(chatId: number) {
+    const idx = chats.value.findIndex((c) => c.id === chatId)
+    if (idx <= 0) return
+    const [chat] = chats.value.splice(idx, 1)
+    if (chat) chats.value.unshift(chat)
+  }
+
+  function updateChatLastMessage(chatId: number, message: Pick<ChatMessage, 'id' | 'senderId' | 'content' | 'createdAt'>) {
+    const idx = chats.value.findIndex((c) => c.id === chatId)
+    if (idx < 0) return
+    const current = chats.value[idx]
+    if (!current) return
+    chats.value[idx] = {
+      ...current,
+      lastMessage: {
+        id: message.id,
+        senderId: message.senderId,
+        content: message.content,
+        createdAt: message.createdAt,
+      },
+    }
+    moveChatToTop(chatId)
+  }
+
+  function patchChatLastMessage(chatId: number, updater: (last: ChatItem['lastMessage']) => ChatItem['lastMessage']) {
+    const idx = chats.value.findIndex((c) => c.id === chatId)
+    if (idx < 0) return
+    const current = chats.value[idx]
+    if (!current) return
+    chats.value[idx] = {
+      ...current,
+      lastMessage: updater(current.lastMessage),
+    }
+  }
+
   async function fetchMe() {
     const me = await fetchMeApi()
     currentUserId.value = me.userId
@@ -105,9 +140,9 @@ export const useChatsStore = defineStore('chats', () => {
     if (!trimmed) return
     isSending.value = true
     try {
-      await sendMessageApi(selectedChatId.value, trimmed)
-      await fetchMessages(selectedChatId.value)
-      await fetchChats()
+      const sent = await sendMessageApi(selectedChatId.value, trimmed)
+      applyMessageNew(sent)
+      updateChatLastMessage(selectedChatId.value, sent)
     } finally {
       isSending.value = false
     }
@@ -191,14 +226,20 @@ export const useChatsStore = defineStore('chats', () => {
     const updated = await updateMessageApi(selectedChatId.value, messageId, content.trim())
     const idx = messages.value.findIndex((m) => m.id === updated.id)
     if (idx >= 0) messages.value[idx] = updated
-    await fetchChats()
+    patchChatLastMessage(selectedChatId.value, (last) =>
+      last?.id === updated.id ? { ...last, content: updated.content } : last,
+    )
   }
 
   async function deleteMessage(messageId: number) {
     if (!selectedChatId.value) return
-    await deleteMessageApi(selectedChatId.value, messageId)
+    const chatId = selectedChatId.value
+    const shouldRefreshChats = chats.value.find((c) => c.id === chatId)?.lastMessage?.id === messageId
+    await deleteMessageApi(chatId, messageId)
     messages.value = messages.value.filter((m) => m.id !== messageId)
-    await fetchChats()
+    if (shouldRefreshChats) {
+      await fetchChats()
+    }
   }
 
   async function deleteChat() {
@@ -215,6 +256,7 @@ export const useChatsStore = defineStore('chats', () => {
     if (selectedChatId.value === payload.chatId && !exists) {
       messages.value.push(payload)
     }
+    updateChatLastMessage(payload.chatId, payload)
   }
 
   function applyMessageUpdated(payload: {
@@ -235,11 +277,18 @@ export const useChatsStore = defineStore('chats', () => {
         }
       }
     }
+    patchChatLastMessage(payload.chatId, (last) =>
+      last?.id === payload.id ? { ...last, content: payload.content } : last,
+    )
   }
 
   function applyMessageDeleted(payload: { id: number; chatId: number }) {
     if (selectedChatId.value === payload.chatId) {
       messages.value = messages.value.filter((m) => m.id !== payload.id)
+    }
+    const deletedLastMessage = chats.value.find((c) => c.id === payload.chatId)?.lastMessage?.id === payload.id
+    if (deletedLastMessage) {
+      void fetchChats()
     }
   }
 
