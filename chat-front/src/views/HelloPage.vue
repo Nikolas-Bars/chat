@@ -18,6 +18,7 @@ type ChatMessage = {
   senderId: number
   content: string
   createdAt: string
+  updatedAt?: string
 }
 
 type ChatItem = {
@@ -53,6 +54,8 @@ const searchResults = ref<UserSearchItem[]>([])
 const isSearching = ref(false)
 const isMessagesLoading = ref(false)
 const socket = ref<Socket | null>(null)
+const editingMessageId = ref<number | null>(null)
+const editingText = ref('')
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('accessToken')
@@ -124,6 +127,31 @@ function connectRealtime() {
     }
     await fetchChats()
   })
+  s.on('message:updated', async (payload: { id: number; chatId: number; content: string; updatedAt: string }) => {
+    if (selectedChatId.value === payload.chatId) {
+      const idx = messages.value.findIndex((m) => m.id === payload.id)
+      if (idx >= 0) {
+        const current = messages.value[idx]
+        if (current) {
+          messages.value[idx] = { ...current, content: payload.content, updatedAt: payload.updatedAt }
+        }
+      }
+    }
+    await fetchChats()
+  })
+  s.on('message:deleted', async (payload: { id: number; chatId: number }) => {
+    if (selectedChatId.value === payload.chatId) {
+      messages.value = messages.value.filter((m) => m.id !== payload.id)
+    }
+    await fetchChats()
+  })
+  s.on('chat:deleted', async (payload: { chatId: number }) => {
+    chats.value = chats.value.filter((c) => c.id !== payload.chatId)
+    if (selectedChatId.value === payload.chatId) {
+      selectedChatId.value = null
+      messages.value = []
+    }
+  })
   socket.value = s
 }
 
@@ -192,6 +220,76 @@ async function sendMessage() {
   }
 }
 
+function startEditMessage(message: ChatMessage) {
+  editingMessageId.value = message.id
+  editingText.value = message.content
+}
+
+function cancelEditMessage() {
+  editingMessageId.value = null
+  editingText.value = ''
+}
+
+async function saveEditMessage(messageId: number) {
+  try {
+    if (!selectedChatId.value) return
+    const content = editingText.value.trim()
+    if (!content) return
+    const res = await fetch(apiUrl(`/chats/${selectedChatId.value}/messages/${messageId}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      credentials: 'include',
+      body: JSON.stringify({ content }),
+    })
+    if (!res.ok) throw new Error(`Не удалось изменить сообщение (${res.status})`)
+    const updated = (await res.json()) as ChatMessage
+    const idx = messages.value.findIndex((m) => m.id === updated.id)
+    if (idx >= 0) messages.value[idx] = updated
+    cancelEditMessage()
+    await fetchChats()
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось изменить сообщение'
+  }
+}
+
+async function deleteMessage(messageId: number) {
+  try {
+    if (!selectedChatId.value) return
+    const ok = window.confirm('Удалить это сообщение?')
+    if (!ok) return
+    const res = await fetch(apiUrl(`/chats/${selectedChatId.value}/messages/${messageId}`), {
+      method: 'DELETE',
+      headers: authHeaders(),
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(`Не удалось удалить сообщение (${res.status})`)
+    messages.value = messages.value.filter((m) => m.id !== messageId)
+    await fetchChats()
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось удалить сообщение'
+  }
+}
+
+async function deleteChat() {
+  try {
+    if (!selectedChatId.value) return
+    const chatId = selectedChatId.value
+    const ok = window.confirm('Удалить весь чат? Сообщения будут скрыты (soft delete).')
+    if (!ok) return
+    const res = await fetch(apiUrl(`/chats/${chatId}`), {
+      method: 'DELETE',
+      headers: authHeaders(),
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(`Не удалось удалить чат (${res.status})`)
+    chats.value = chats.value.filter((c) => c.id !== chatId)
+    selectedChatId.value = null
+    messages.value = []
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось удалить чат'
+  }
+}
+
 onMounted(async () => {
   try {
     await fetchMe()
@@ -202,6 +300,10 @@ onMounted(async () => {
     connectRealtime()
   } catch (e) {
     if (e instanceof Error) {
+      if (e.message === 'Сессия недействительна') {
+        await router.push('/login')
+        return
+      }
       errorMessage.value = e.message
     } else {
       errorMessage.value = 'Не удалось загрузить чат'
@@ -332,10 +434,21 @@ async function logout() {
       </div>
       <div v-else class="flex h-[70vh] flex-col">
         <div class="mb-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div class="font-medium">
-            {{ selectedChat.peer.name }} {{ selectedChat.peer.lastName }}
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-medium">
+                {{ selectedChat.peer.name }} {{ selectedChat.peer.lastName }}
+              </div>
+              <div class="text-xs text-slate-500">{{ selectedChat.peer.email }}</div>
+            </div>
+            <button
+              type="button"
+              class="rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+              @click="deleteChat"
+            >
+              Удалить чат
+            </button>
           </div>
-          <div class="text-xs text-slate-500">{{ selectedChat.peer.email }}</div>
         </div>
 
         <div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -350,9 +463,32 @@ async function logout() {
                 : 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
             "
           >
-            <div>{{ m.content }}</div>
+            <div v-if="editingMessageId === m.id">
+              <textarea
+                v-model="editingText"
+                class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                rows="3"
+              />
+              <div class="mt-2 flex gap-2">
+                <button class="rounded-md bg-emerald-600 px-2 py-1 text-xs text-white" @click="saveEditMessage(m.id)">
+                  Сохранить
+                </button>
+                <button class="rounded-md border px-2 py-1 text-xs" @click="cancelEditMessage">
+                  Отмена
+                </button>
+              </div>
+            </div>
+            <div v-else>{{ m.content }}</div>
             <div class="mt-1 text-[10px] opacity-70">
               {{ new Date(m.createdAt).toLocaleString() }}
+              <span v-if="m.updatedAt"> · изменено</span>
+            </div>
+            <div
+              v-if="m.senderId === currentUserId && editingMessageId !== m.id"
+              class="mt-1 flex gap-2 text-[11px]"
+            >
+              <button class="opacity-80 hover:opacity-100" @click="startEditMessage(m)">Ред.</button>
+              <button class="opacity-80 hover:opacity-100" @click="deleteMessage(m.id)">Удалить</button>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -25,5 +26,8 @@ export class Message {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime', precision: 6 })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'datetime', precision: 6, nullable: true })
+  deletedAt: Date | null;
 }
 

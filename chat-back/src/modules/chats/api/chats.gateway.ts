@@ -84,12 +84,36 @@ export class ChatsGateway implements OnGatewayConnection {
     }
   }
 
+  emitChatDeleted(userIds: number[], chatId: number): void {
+    for (const userId of userIds) {
+      this.server.to(`user:${userId}`).emit('chat:deleted', { chatId });
+    }
+  }
+
   emitMessageNew(
     userIds: number[],
     payload: { id: number; chatId: number; senderId: number; content: string; createdAt: Date },
   ): void {
     for (const userId of userIds) {
       this.server.to(`user:${userId}`).emit('message:new', payload);
+    }
+  }
+
+  emitMessageUpdated(
+    userIds: number[],
+    payload: { id: number; chatId: number; content: string; updatedAt: Date },
+  ): void {
+    for (const userId of userIds) {
+      this.server.to(`user:${userId}`).emit('message:updated', payload);
+    }
+  }
+
+  emitMessageDeleted(
+    userIds: number[],
+    payload: { id: number; chatId: number },
+  ): void {
+    for (const userId of userIds) {
+      this.server.to(`user:${userId}`).emit('message:deleted', payload);
     }
   }
 }

@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UsersExternalService } from '../../users/application/users-external.service';
 import { ChatsRepository } from '../infrastructure/chats.repository';
 import { Chat } from '../domain/chat.entity';
@@ -31,26 +36,67 @@ export class ChatsService {
       throw new NotFoundException('User not found');
     }
     const [firstUserId, secondUserId] = sortPair(currentUserId, targetUserId);
-    const existed = await this.chatsRepository.findDirectByPair(firstUserId, secondUserId);
+    const existed = await this.chatsRepository.findDirectByPairWithDeleted(
+      firstUserId,
+      secondUserId,
+    );
     if (existed) {
-      this.chatsGateway.emitChatUpdated([currentUserId, targetUserId], existed.id);
-      return this.mapChat(existed, currentUserId, null, target.id, target.name, target.lastName, target.email);
+      if (existed.deletedAt) {
+        await this.chatsRepository.restoreChat(existed.id);
+      }
+      const activeChat =
+        (await this.chatsRepository.findById(existed.id)) ?? existed;
+      this.chatsGateway.emitChatUpdated(
+        [currentUserId, targetUserId],
+        activeChat.id,
+      );
+      return this.mapChat(
+        activeChat,
+        currentUserId,
+        null,
+        target.id,
+        target.name,
+        target.lastName,
+        target.email,
+      );
     }
-    const created = await this.chatsRepository.createDirect(firstUserId, secondUserId);
-    this.chatsGateway.emitChatUpdated([currentUserId, targetUserId], created.id);
-    return this.mapChat(created, currentUserId, null, target.id, target.name, target.lastName, target.email);
+    const created = await this.chatsRepository.createDirect(
+      firstUserId,
+      secondUserId,
+    );
+    this.chatsGateway.emitChatUpdated(
+      [currentUserId, targetUserId],
+      created.id,
+    );
+    return this.mapChat(
+      created,
+      currentUserId,
+      null,
+      target.id,
+      target.name,
+      target.lastName,
+      target.email,
+    );
   }
 
   async listChats(currentUserId: number) {
     const chats = await this.chatsRepository.findByUserId(currentUserId);
     const chatIds = chats.map((c) => c.id);
-    const lastMessages = await this.chatsRepository.findLastMessagesByChatIds(chatIds);
+    const lastMessages =
+      await this.chatsRepository.findLastMessagesByChatIds(chatIds);
 
     const peerIds = new Set<number>();
     for (const chat of chats) {
-      peerIds.add(chat.firstUserId === currentUserId ? chat.secondUserId : chat.firstUserId);
+      peerIds.add(
+        chat.firstUserId === currentUserId
+          ? chat.secondUserId
+          : chat.firstUserId,
+      );
     }
-    const peersMap = new Map<number, { id: number; name: string; lastName: string; email: string }>();
+    const peersMap = new Map<
+      number,
+      { id: number; name: string; lastName: string; email: string }
+    >();
     await Promise.all(
       Array.from(peerIds).map(async (id) => {
         const user = await this.usersExternalService.findById(id);
@@ -66,7 +112,10 @@ export class ChatsService {
     );
 
     return chats.map((chat) => {
-      const peerId = chat.firstUserId === currentUserId ? chat.secondUserId : chat.firstUserId;
+      const peerId =
+        chat.firstUserId === currentUserId
+          ? chat.secondUserId
+          : chat.firstUserId;
       const peer = peersMap.get(peerId);
       const last = lastMessages.get(chat.id) ?? null;
       return this.mapChat(
@@ -94,6 +143,7 @@ export class ChatsService {
       senderId: m.senderId,
       content: m.content,
       createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
     }));
   }
 
@@ -103,7 +153,11 @@ export class ChatsService {
       throw new NotFoundException('Chat not found');
     }
     this.ensureParticipant(chat, currentUserId);
-    const message = await this.chatsRepository.createMessage(chatId, currentUserId, content.trim());
+    const message = await this.chatsRepository.createMessage(
+      chatId,
+      currentUserId,
+      content.trim(),
+    );
     // Обновляем updatedAt чата как маркер последней активности.
     await this.chatsRepository.touch(chat);
     const payload = {
@@ -113,15 +167,111 @@ export class ChatsService {
       content: message.content,
       createdAt: message.createdAt,
     };
-    this.chatsGateway.emitMessageNew([chat.firstUserId, chat.secondUserId], payload);
-    this.chatsGateway.emitChatUpdated([chat.firstUserId, chat.secondUserId], chat.id);
+    this.chatsGateway.emitMessageNew(
+      [chat.firstUserId, chat.secondUserId],
+      payload,
+    );
+    this.chatsGateway.emitChatUpdated(
+      [chat.firstUserId, chat.secondUserId],
+      chat.id,
+    );
     return payload;
+  }
+
+  async updateMessage(
+    currentUserId: number,
+    chatId: number,
+    messageId: number,
+    content: string,
+  ) {
+    const chat = await this.chatsRepository.findById(chatId);
+    if (!chat) throw new NotFoundException('Chat not found');
+    this.ensureParticipant(chat, currentUserId);
+
+    const message = await this.chatsRepository.findMessageById(
+      chatId,
+      messageId,
+    );
+    if (!message) throw new NotFoundException('Message not found');
+    if (message.senderId !== currentUserId) {
+      throw new ForbiddenException('You can edit only your messages');
+    }
+
+    message.content = content.trim();
+    const saved = await this.chatsRepository.saveMessage(message);
+    this.chatsGateway.emitMessageUpdated(
+      [chat.firstUserId, chat.secondUserId],
+      {
+        id: saved.id,
+        chatId: saved.chatId,
+        content: saved.content,
+        updatedAt: saved.updatedAt,
+      },
+    );
+    await this.chatsRepository.touch(chat);
+    this.chatsGateway.emitChatUpdated(
+      [chat.firstUserId, chat.secondUserId],
+      chat.id,
+    );
+    return {
+      id: saved.id,
+      chatId: saved.chatId,
+      senderId: saved.senderId,
+      content: saved.content,
+      createdAt: saved.createdAt,
+      updatedAt: saved.updatedAt,
+    };
+  }
+
+  async deleteMessage(
+    currentUserId: number,
+    chatId: number,
+    messageId: number,
+  ): Promise<void> {
+    const chat = await this.chatsRepository.findById(chatId);
+    if (!chat) throw new NotFoundException('Chat not found');
+    this.ensureParticipant(chat, currentUserId);
+
+    const message = await this.chatsRepository.findMessageById(
+      chatId,
+      messageId,
+    );
+    if (!message) throw new NotFoundException('Message not found');
+    if (message.senderId !== currentUserId) {
+      throw new ForbiddenException('You can delete only your messages');
+    }
+    await this.chatsRepository.softDeleteMessage(message);
+    this.chatsGateway.emitMessageDeleted(
+      [chat.firstUserId, chat.secondUserId],
+      { id: message.id, chatId },
+    );
+    await this.chatsRepository.touch(chat);
+    this.chatsGateway.emitChatUpdated(
+      [chat.firstUserId, chat.secondUserId],
+      chat.id,
+    );
+  }
+
+  async deleteChat(currentUserId: number, chatId: number): Promise<void> {
+    const chat = await this.chatsRepository.findById(chatId);
+    if (!chat) throw new NotFoundException('Chat not found');
+    this.ensureParticipant(chat, currentUserId);
+    await this.chatsRepository.softDeleteChat(chat);
+    this.chatsGateway.emitChatDeleted(
+      [chat.firstUserId, chat.secondUserId],
+      chat.id,
+    );
   }
 
   private mapChat(
     chat: Chat,
     currentUserId: number,
-    lastMessage: { id: number; senderId: number; content: string; createdAt: Date } | null,
+    lastMessage: {
+      id: number;
+      senderId: number;
+      content: string;
+      createdAt: Date;
+    } | null,
     peerId: number,
     peerName: string,
     peerLastName: string,
@@ -150,4 +300,3 @@ export class ChatsService {
     };
   }
 }
-
