@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Chat } from '../domain/chat.entity';
+import { ChatReadState } from '../domain/chat-read-state.entity';
 import { Message } from '../domain/message.entity';
 import { MessageReaction } from '../domain/message-reaction.entity';
 import { ReactionCatalog } from '../domain/reaction-catalog.entity';
@@ -11,6 +12,8 @@ export class ChatsRepository {
   constructor(
     @InjectRepository(Chat)
     private readonly chatRepo: Repository<Chat>,
+    @InjectRepository(ChatReadState)
+    private readonly chatReadStateRepo: Repository<ChatReadState>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
     @InjectRepository(MessageReaction)
@@ -53,6 +56,31 @@ export class ChatsRepository {
 
   async findById(id: number): Promise<Chat | null> {
     return this.chatRepo.findOne({ where: { id } });
+  }
+
+  async findReadState(chatId: number, userId: number): Promise<ChatReadState | null> {
+    return this.chatReadStateRepo.findOne({ where: { chatId, userId } });
+  }
+
+  async findReadStatesByChatIds(chatIds: number[]): Promise<ChatReadState[]> {
+    if (chatIds.length === 0) return [];
+    return this.chatReadStateRepo.find({
+      where: { chatId: In(chatIds) },
+    });
+  }
+
+  async saveReadState(chatId: number, userId: number, lastReadMessageId: number): Promise<ChatReadState> {
+    const existing = await this.findReadState(chatId, userId);
+    if (existing) {
+      existing.lastReadMessageId = lastReadMessageId;
+      return this.chatReadStateRepo.save(existing);
+    }
+    const created = this.chatReadStateRepo.create({
+      chatId,
+      userId,
+      lastReadMessageId,
+    });
+    return this.chatReadStateRepo.save(created);
   }
 
   async touch(chat: Chat): Promise<Chat> {
@@ -108,6 +136,21 @@ export class ChatsRepository {
 
   async softDeleteMessage(message: Message): Promise<void> {
     await this.messageRepo.softDelete(message.id);
+  }
+
+  async countUnreadMessages(
+    chatId: number,
+    currentUserId: number,
+    lastReadMessageId: number | null,
+  ): Promise<number> {
+    const qb = this.messageRepo
+      .createQueryBuilder('m')
+      .where('m.chat_id = :chatId', { chatId })
+      .andWhere('m.sender_id != :currentUserId', { currentUserId });
+    if (lastReadMessageId !== null) {
+      qb.andWhere('m.id > :lastRead', { lastRead: lastReadMessageId });
+    }
+    return qb.getCount();
   }
 
   async findLastMessagesByChatIds(chatIds: number[]): Promise<Map<number, Message>> {

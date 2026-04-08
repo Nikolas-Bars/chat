@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   Unique,
   UpdateDateColumn,
@@ -10,6 +11,8 @@ import {
 
 @Entity('chats')
 @Unique('UQ_chats_user_pair', ['firstUserId', 'secondUserId'])
+@Index('IDX_chats_first_user', ['firstUserId'])
+@Index('IDX_chats_second_user', ['secondUserId'])
 export class Chat {
   @PrimaryGeneratedColumn()
   id: number;

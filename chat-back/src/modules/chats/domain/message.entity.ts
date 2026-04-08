@@ -3,11 +3,15 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('messages')
+@Index('IDX_messages_chat_id', ['chatId'])
+@Index('IDX_messages_sender_id', ['senderId'])
+@Index('IDX_messages_chat_deleted_created', ['chatId', 'deletedAt', 'createdAt'])
 export class Message {
   @PrimaryGeneratedColumn()
   id: number;

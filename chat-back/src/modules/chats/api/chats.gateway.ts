@@ -92,7 +92,15 @@ export class ChatsGateway implements OnGatewayConnection {
 
   emitMessageNew(
     userIds: number[],
-    payload: { id: number; chatId: number; senderId: number; content: string; createdAt: Date },
+    payload: {
+      id: number;
+      chatId: number;
+      senderId: number;
+      content: string;
+      createdAt: Date;
+      updatedAt?: Date;
+      readByPeer?: boolean;
+    },
   ): void {
     for (const userId of userIds) {
       this.server.to(`user:${userId}`).emit('message:new', payload);
@@ -135,6 +143,15 @@ export class ChatsGateway implements OnGatewayConnection {
         })),
       };
       this.server.to(`user:${userId}`).emit('message:reactions-updated', normalized);
+    }
+  }
+
+  emitChatReadUpdated(
+    userIds: number[],
+    payload: { chatId: number; readerUserId: number; lastReadMessageId: number },
+  ): void {
+    for (const userId of userIds) {
+      this.server.to(`user:${userId}`).emit('chat:read-updated', payload);
     }
   }
 }

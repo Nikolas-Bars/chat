@@ -2,12 +2,16 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from './user-role.enum';
 
 @Entity('users')
+@Index('IDX_users_phone', ['phone'])
+@Index('IDX_users_email_confirmation_code', ['emailConfirmationCode'])
+@Index('IDX_users_role', ['role'])
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
