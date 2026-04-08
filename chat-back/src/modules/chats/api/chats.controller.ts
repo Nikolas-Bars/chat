@@ -135,5 +135,32 @@ export class ChatsController {
       messageId,
     );
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ROOT)
+  @Get('admin/users/:userId/chats')
+  async listChatsForUserAsRoot(
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.chatsService.listChatsForUserAsRoot(userId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ROOT)
+  @Post('admin/chats/:chatId/restore')
+  async restoreChatAsRoot(
+    @Param('chatId', ParseIntPipe) chatId: number,
+  ): Promise<void> {
+    await this.chatsService.restoreChatAsRoot(chatId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ROOT)
+  @Post('admin/chats/:chatId/delete')
+  async deleteChatAsRoot(
+    @Param('chatId', ParseIntPipe) chatId: number,
+  ): Promise<void> {
+    await this.chatsService.deleteChatAsRoot(chatId);
+  }
 }
 

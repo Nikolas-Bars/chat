@@ -25,7 +25,7 @@ const SEED_USERS: Array<{
     jobTitle: 'Developer',
     company: 'Local',
     plainPassword: 'password123',
-    role: UserRole.ROOT,
+    role: UserRole.USER,
   },
   {
     email: 'bob@local.dev',
@@ -36,7 +36,7 @@ const SEED_USERS: Array<{
     jobTitle: null,
     company: null,
     plainPassword: 'password123',
-    role: UserRole.ADMIN,
+    role: UserRole.USER,
   },
 ];
 

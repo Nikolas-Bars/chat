@@ -67,6 +67,23 @@ export class ChatsRepository {
     await this.chatRepo.restore(chatId);
   }
 
+  async findByUserIdWithDeleted(userId: number): Promise<Chat[]> {
+    return this.chatRepo
+      .createQueryBuilder('c')
+      .withDeleted()
+      .where('c.first_user_id = :userId OR c.second_user_id = :userId', { userId })
+      .orderBy('c.updated_at', 'DESC')
+      .getMany();
+  }
+
+  async findByIdWithDeleted(id: number): Promise<Chat | null> {
+    return this.chatRepo
+      .createQueryBuilder('c')
+      .withDeleted()
+      .where('c.id = :id', { id })
+      .getOne();
+  }
+
   async createMessage(chatId: number, senderId: number, content: string): Promise<Message> {
     const message = this.messageRepo.create({ chatId, senderId, content });
     return this.messageRepo.save(message);

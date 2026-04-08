@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UsersRepository } from '../infrastructure/users.repository';
 import { UserViewDto } from '../dto/user-view.dto';
 import { User } from '../domain/user.entity';
 import { CreateUnconfirmedUserDto } from '../dto/create-unconfirmed-user.dto';
+import { UserRole } from '../domain/user-role.enum';
 
 @Injectable()
 export class UsersService {
@@ -29,6 +30,13 @@ export class UsersService {
     return users.map((u) => UserViewDto.fromEntity(u));
   }
 
+  async findForAdminPanel(query: string, limit: number): Promise<UserViewDto[]> {
+    const users = query.trim()
+      ? await this.usersRepository.searchForAdminPanel(query.trim(), limit)
+      : await this.usersRepository.findAllLimited(limit);
+    return users.map((u) => UserViewDto.fromEntity(u));
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findByEmail(email);
   }
@@ -50,6 +58,15 @@ export class UsersService {
   }
 
   async save(user: User): Promise<User> {
+    return this.usersRepository.save(user);
+  }
+
+  async updateRole(userId: number, role: UserRole): Promise<User> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    user.role = role;
     return this.usersRepository.save(user);
   }
 

@@ -15,8 +15,18 @@ import {
   updateMessageApi,
   type ChatItem,
   type ChatMessage,
+  fetchRootUserChatsApi,
+  restoreChatAsRootApi,
+  deleteChatAsRootApi,
+  type RootManagedChatItem,
 } from '../api/chats'
-import { searchUsersApi, type UserSearchItem } from '../api/users'
+import {
+  fetchUsersApi,
+  searchUsersApi,
+  type UserListItem,
+  type UserSearchItem,
+  updateUserRoleApi,
+} from '../api/users'
 
 export const useChatsStore = defineStore('chats', () => {
   const currentUserId = ref<number | null>(null)
@@ -31,6 +41,12 @@ export const useChatsStore = defineStore('chats', () => {
   const searchResults = ref<UserSearchItem[]>([])
   const isSearching = ref(false)
   const reactionCatalog = ref<string[]>([])
+  const rootUsersForRoles = ref<UserListItem[]>([])
+  const rootUsersForChats = ref<UserListItem[]>([])
+  const rootUsersRolesSearch = ref('')
+  const rootUsersChatsSearch = ref('')
+  const selectedRootUserId = ref<number | null>(null)
+  const rootUserChats = ref<RootManagedChatItem[]>([])
 
   const selectedChat = computed(() =>
     chats.value.find((c) => c.id === selectedChatId.value) ?? null,
@@ -99,6 +115,46 @@ export const useChatsStore = defineStore('chats', () => {
 
   async function fetchReactionCatalog() {
     reactionCatalog.value = await fetchReactionCatalogApi()
+  }
+
+  async function fetchUsersForRootRoles(query = '') {
+    rootUsersForRoles.value = await fetchUsersApi(query, query.trim() ? 20 : 5)
+    rootUsersRolesSearch.value = query
+  }
+
+  async function fetchUsersForRootChats(query = '') {
+    rootUsersForChats.value = await fetchUsersApi(query, query.trim() ? 20 : 5)
+    rootUsersChatsSearch.value = query
+  }
+
+  async function changeUserRole(
+    userId: number,
+    role: 'root' | 'admin' | 'user',
+  ) {
+    const updated = await updateUserRoleApi(userId, role)
+    const idxRoles = rootUsersForRoles.value.findIndex((u) => u.id === userId)
+    if (idxRoles >= 0) rootUsersForRoles.value[idxRoles] = updated
+    const idxChats = rootUsersForChats.value.findIndex((u) => u.id === userId)
+    if (idxChats >= 0) rootUsersForChats.value[idxChats] = updated
+  }
+
+  async function selectRootUser(userId: number) {
+    selectedRootUserId.value = userId
+    rootUserChats.value = await fetchRootUserChatsApi(userId)
+  }
+
+  async function restoreChatAsRoot(chatId: number) {
+    await restoreChatAsRootApi(chatId)
+    if (selectedRootUserId.value) {
+      rootUserChats.value = await fetchRootUserChatsApi(selectedRootUserId.value)
+    }
+  }
+
+  async function deleteChatAsRoot(chatId: number) {
+    await deleteChatAsRootApi(chatId)
+    if (selectedRootUserId.value) {
+      rootUserChats.value = await fetchRootUserChatsApi(selectedRootUserId.value)
+    }
   }
 
   async function addReactionToCatalog(value: string) {
@@ -224,6 +280,12 @@ export const useChatsStore = defineStore('chats', () => {
     searchResults,
     isSearching,
     reactionCatalog,
+    rootUsersForRoles,
+    rootUsersForChats,
+    rootUsersRolesSearch,
+    rootUsersChatsSearch,
+    selectedRootUserId,
+    rootUserChats,
     fetchMe,
     fetchChats,
     fetchMessages,
@@ -232,6 +294,12 @@ export const useChatsStore = defineStore('chats', () => {
     runSearch,
     sendMessage,
     fetchReactionCatalog,
+    fetchUsersForRootRoles,
+    fetchUsersForRootChats,
+    changeUserRole,
+    selectRootUser,
+    restoreChatAsRoot,
+    deleteChatAsRoot,
     addReactionToCatalog,
     setReaction,
     removeMyReaction,

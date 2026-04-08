@@ -4,6 +4,7 @@ import { UserViewDto } from '../dto/user-view.dto';
 import { UsersService } from './users.service';
 import { User } from '../domain/user.entity';
 import { CreateUnconfirmedUserDto } from '../dto/create-unconfirmed-user.dto';
+import { UserRole } from '../domain/user-role.enum';
 
 /** Точка входа для других модулей / внешних сценариев. */
 @Injectable()
@@ -44,5 +45,9 @@ export class UsersExternalService {
 
   async createUnconfirmedUser(dto: CreateUnconfirmedUserDto): Promise<User> {
     return this.usersService.createUnconfirmed(dto);
+  }
+
+  async updateRole(userId: number, role: UserRole): Promise<User> {
+    return this.usersService.updateRole(userId, role);
   }
 }

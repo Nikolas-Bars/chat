@@ -22,6 +22,26 @@ export class UsersRepository {
     return this.repo.find({ order: { id: 'ASC' } });
   }
 
+  async findAllLimited(limit: number): Promise<User[]> {
+    return this.repo.find({
+      order: { id: 'ASC' },
+      take: limit,
+    });
+  }
+
+  async searchForAdminPanel(term: string, limit = 20): Promise<User[]> {
+    const q = `%${term.toLowerCase()}%`;
+    return this.repo
+      .createQueryBuilder('u')
+      .where(
+        '(LOWER(u.email) LIKE :q OR LOWER(u.name) LIKE :q OR LOWER(u.last_name) LIKE :q)',
+        { q },
+      )
+      .orderBy('u.id', 'ASC')
+      .limit(limit)
+      .getMany();
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.repo.findOne({ where: { email } });
   }

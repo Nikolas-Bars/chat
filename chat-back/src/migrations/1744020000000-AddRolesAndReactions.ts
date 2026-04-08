@@ -47,26 +47,6 @@ export class AddRolesAndReactions1744020000000 implements MigrationInterface {
       ('❤️'), ('💔'), ('💙'), ('💚'), ('🤍'), ('🖤'), ('✅'), ('❌')
     `);
 
-    await queryRunner.query(`
-      UPDATE \`users\`
-      SET \`role\` = 'root'
-      WHERE \`id\` = (
-        SELECT \`id\` FROM (
-          SELECT \`id\` FROM \`users\` ORDER BY \`id\` ASC LIMIT 1
-        ) t
-      )
-    `);
-
-    await queryRunner.query(`
-      UPDATE \`users\`
-      SET \`role\` = 'admin'
-      WHERE \`id\` = (
-        SELECT \`id\` FROM (
-          SELECT \`id\` FROM \`users\` ORDER BY \`id\` ASC LIMIT 1 OFFSET 1
-        ) t
-      )
-      AND \`role\` = 'user'
-    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

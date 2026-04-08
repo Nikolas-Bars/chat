@@ -23,18 +23,28 @@ const {
   searchResults,
   isSearching,
   reactionCatalog,
+  rootUsersForRoles,
+  rootUsersForChats,
+  rootUsersRolesSearch,
+  rootUsersChatsSearch,
+  selectedRootUserId,
+  rootUserChats,
 } = storeToRefs(chatsStore)
 
 const isLoggingOut = ref(false)
 const errorMessage = ref('')
 const isBootLoading = ref(true)
 const isSidebarOpen = ref(false)
+const isRootPanelOpen = ref(false)
 const messageText = ref('')
 const socket = ref<Socket | null>(null)
 const editingMessageId = ref<number | null>(null)
 const editingText = ref('')
 const reactionPickerMessageId = ref<number | null>(null)
 const newReactionValue = ref('')
+const isRootUserDropdownOpen = ref(false)
+const isRootRoleDropdownOpen = ref(false)
+const selectedRoleUserId = ref<number | null>(null)
 
 function getRealtimeBaseUrl(): string {
   const api = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
@@ -93,6 +103,10 @@ async function createChatWith(userId: number) {
 
 function toggleSidebar() {
   isSidebarOpen.value = !isSidebarOpen.value
+}
+
+function toggleRootPanel() {
+  isRootPanelOpen.value = !isRootPanelOpen.value
 }
 
 async function runSearch() {
@@ -179,11 +193,80 @@ async function addReactionToCatalog() {
   }
 }
 
+async function pickRootUser(userId: number, label: string) {
+  try {
+    rootUsersChatsSearch.value = label
+    isRootUserDropdownOpen.value = false
+    await chatsStore.selectRootUser(userId)
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось загрузить чаты пользователя'
+  }
+}
+
+async function pickRoleUser(userId: number, label: string) {
+  selectedRoleUserId.value = userId
+  rootUsersRolesSearch.value = label
+  isRootRoleDropdownOpen.value = false
+}
+
+async function onUserRoleChanged(userId: number, event: Event) {
+  const target = event.target as HTMLSelectElement
+  const role = target.value as 'root' | 'admin' | 'user'
+  try {
+    await chatsStore.changeUserRole(userId, role)
+    if (currentUserId.value === userId) {
+      myRole.value = role
+    }
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось обновить роль'
+  }
+}
+
+async function restoreChatAsRoot(chatId: number) {
+  try {
+    await chatsStore.restoreChatAsRoot(chatId)
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось восстановить чат'
+  }
+}
+
+async function deleteChatAsRoot(chatId: number) {
+  try {
+    const ok = window.confirm('Удалить этот чат? (soft delete)')
+    if (!ok) return
+    await chatsStore.deleteChatAsRoot(chatId)
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось удалить чат'
+  }
+}
+
+async function runRootUsersSearch() {
+  try {
+    await chatsStore.fetchUsersForRootChats(rootUsersChatsSearch.value)
+    isRootUserDropdownOpen.value = true
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось выполнить поиск пользователей'
+  }
+}
+
+async function runRootRolesSearch() {
+  try {
+    await chatsStore.fetchUsersForRootRoles(rootUsersRolesSearch.value)
+    isRootRoleDropdownOpen.value = true
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось выполнить поиск пользователей'
+  }
+}
+
 onMounted(async () => {
   try {
     await chatsStore.fetchMe()
     await chatsStore.fetchReactionCatalog()
     await chatsStore.fetchChats()
+    if (myRole.value === 'root') {
+      await chatsStore.fetchUsersForRootRoles()
+      await chatsStore.fetchUsersForRootChats()
+    }
     if (chats.value[0]) {
       await selectChat(chats.value[0].id)
     }
@@ -242,14 +325,24 @@ async function logout() {
         <div class="text-sm text-slate-500 dark:text-slate-400">Мой логин:</div>
         <div class="text-sm font-semibold">{{ myLogin || '—' }} ({{ myRole }})</div>
       </div>
-      <button
-        type="button"
-        :disabled="isLoggingOut"
-        class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
-        @click="logout"
-      >
-        {{ isLoggingOut ? 'Выход…' : 'Выйти' }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          v-if="myRole === 'root'"
+          type="button"
+          class="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+          @click="toggleRootPanel"
+        >
+          ⚙
+        </button>
+        <button
+          type="button"
+          :disabled="isLoggingOut"
+          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+          @click="logout"
+        >
+          {{ isLoggingOut ? 'Выход…' : 'Выйти' }}
+        </button>
+      </div>
     </div>
 
     <div
@@ -289,24 +382,6 @@ async function logout() {
         </button>
       </div>
 
-      <div v-if="myRole === 'root'" class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
-        <div class="mb-2 text-xs text-slate-500">Добавить реакцию в общий каталог</div>
-        <div class="flex gap-2">
-          <input
-            v-model="newReactionValue"
-            class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
-            placeholder="Например: 🤖"
-          />
-          <button
-            type="button"
-            class="rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-            @click="addReactionToCatalog"
-          >
-            Добавить
-          </button>
-        </div>
-      </div>
-
       <div class="space-y-2">
         <button
           v-for="chat in chats"
@@ -326,6 +401,147 @@ async function logout() {
             {{ chat.lastMessage?.content ?? 'Нет сообщений' }}
           </div>
         </button>
+      </div>
+    </aside>
+
+    <div
+      v-if="isRootPanelOpen"
+      class="fixed inset-0 z-20 bg-black/40"
+      @click="isRootPanelOpen = false"
+    />
+
+    <aside
+      v-if="myRole === 'root'"
+      class="fixed inset-y-0 right-0 z-30 w-[360px] overflow-y-auto border-l border-slate-200 bg-white p-4 shadow-xl transition-transform dark:border-slate-800 dark:bg-slate-900"
+      :class="isRootPanelOpen ? 'translate-x-0' : 'translate-x-full'"
+    >
+      <div class="mb-3 flex items-center justify-between">
+        <h1 class="text-lg font-semibold">Панель root</h1>
+        <button class="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100" @click="isRootPanelOpen = false">✕</button>
+      </div>
+
+      <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+        <div class="mb-2 text-xs text-slate-500">Добавить реакцию в общий каталог</div>
+        <div class="flex gap-2">
+          <input
+            v-model="newReactionValue"
+            class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
+            placeholder="Например: 🤖"
+          />
+          <button
+            type="button"
+            class="rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            @click="addReactionToCatalog"
+          >
+            Добавить
+          </button>
+        </div>
+      </div>
+
+      <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+        <div class="mb-2 text-xs text-slate-500">Управление ролями</div>
+        <div class="relative mb-2">
+          <input
+            v-model="rootUsersRolesSearch"
+            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900"
+            placeholder="Выбери пользователя для роли"
+            @focus="isRootRoleDropdownOpen = true"
+            @input="runRootRolesSearch"
+          />
+          <div
+            v-if="isRootRoleDropdownOpen"
+            class="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          >
+            <button
+              v-for="u in rootUsersForRoles"
+              :key="`role-pick-${u.id}`"
+              type="button"
+              class="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+              @click="pickRoleUser(u.id, `${u.name} ${u.lastName} (${u.email})`)"
+            >
+              {{ u.name }} {{ u.lastName }} ({{ u.email }}) — {{ u.role }}
+            </button>
+            <div v-if="!rootUsersForRoles.length" class="px-2 py-1 text-xs text-slate-500">
+              Ничего не найдено
+            </div>
+          </div>
+        </div>
+        <div v-if="selectedRoleUserId" class="rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700">
+          <div class="mb-1 text-slate-500">Новая роль</div>
+          <select
+            :value="rootUsersForRoles.find((u) => u.id === selectedRoleUserId)?.role ?? 'user'"
+            class="w-full rounded-md border border-slate-300 bg-white px-1 py-1 text-xs dark:border-slate-600 dark:bg-slate-900"
+            @change="onUserRoleChanged(selectedRoleUserId, $event)"
+          >
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+            <option value="root">root</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+        <div class="mb-2 text-xs text-slate-500">Восстановление удаленных чатов</div>
+        <div class="relative mb-2">
+          <input
+            v-model="rootUsersChatsSearch"
+            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900"
+            placeholder="Выбери пользователя (поиск)"
+            @focus="isRootUserDropdownOpen = true"
+            @input="runRootUsersSearch"
+          />
+          <div
+            v-if="isRootUserDropdownOpen"
+            class="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          >
+            <button
+              v-for="u in rootUsersForChats"
+              :key="`pick-${u.id}`"
+              type="button"
+              class="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+              @click="pickRootUser(u.id, `${u.name} ${u.lastName} (${u.email})`)"
+            >
+              {{ u.name }} {{ u.lastName }} ({{ u.email }})
+            </button>
+            <div v-if="!rootUsersForChats.length" class="px-2 py-1 text-xs text-slate-500">
+              Ничего не найдено
+            </div>
+          </div>
+        </div>
+        <div v-if="selectedRootUserId" class="max-h-52 space-y-2 overflow-y-auto pr-1">
+          <div
+            v-for="chat in rootUserChats"
+            :key="`root-chat-${chat.id}`"
+            class="rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700"
+          >
+            <div class="font-medium">
+              {{ chat.peer.name }} {{ chat.peer.lastName }}
+            </div>
+            <div class="truncate text-slate-500">{{ chat.peer.email }}</div>
+            <div class="mt-1 text-[11px]">
+              Статус:
+              <span :class="chat.deletedAt ? 'text-red-500' : 'text-emerald-500'">
+                {{ chat.deletedAt ? 'удален' : 'активен' }}
+              </span>
+            </div>
+            <button
+              v-if="chat.deletedAt"
+              type="button"
+              class="mt-2 rounded-md border border-emerald-500 px-2 py-0.5 text-[11px] text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              @click="restoreChatAsRoot(chat.id)"
+            >
+              Восстановить
+            </button>
+            <button
+              v-else
+              type="button"
+              class="mt-2 rounded-md border border-red-500 px-2 py-0.5 text-[11px] text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+              @click="deleteChatAsRoot(chat.id)"
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
 

@@ -375,6 +375,80 @@ export class ChatsService {
     return summary;
   }
 
+  async listChatsForUserAsRoot(targetUserId: number) {
+    const target = await this.usersExternalService.findById(targetUserId);
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+    const chats = await this.chatsRepository.findByUserIdWithDeleted(targetUserId);
+    const peerIds = new Set<number>();
+    for (const chat of chats) {
+      peerIds.add(
+        chat.firstUserId === targetUserId ? chat.secondUserId : chat.firstUserId,
+      );
+    }
+    const peersMap = new Map<number, { id: number; name: string; lastName: string; email: string }>();
+    await Promise.all(
+      Array.from(peerIds).map(async (id) => {
+        const user = await this.usersExternalService.findById(id);
+        if (user) {
+          peersMap.set(id, {
+            id: user.id,
+            name: user.name,
+            lastName: user.lastName,
+            email: user.email,
+          });
+        }
+      }),
+    );
+
+    return chats.map((chat) => {
+      const peerId =
+        chat.firstUserId === targetUserId ? chat.secondUserId : chat.firstUserId;
+      const peer = peersMap.get(peerId);
+      return {
+        id: chat.id,
+        participantIds: [chat.firstUserId, chat.secondUserId],
+        targetUserId,
+        peer: {
+          id: peer?.id ?? peerId,
+          name: peer?.name ?? 'Unknown',
+          lastName: peer?.lastName ?? '',
+          email: peer?.email ?? '',
+        },
+        deletedAt: chat.deletedAt,
+        updatedAt: chat.updatedAt,
+        createdAt: chat.createdAt,
+      };
+    });
+  }
+
+  async restoreChatAsRoot(chatId: number): Promise<void> {
+    const chat = await this.chatsRepository.findByIdWithDeleted(chatId);
+    if (!chat) {
+      throw new NotFoundException('Chat not found');
+    }
+    if (!chat.deletedAt) {
+      return;
+    }
+    await this.chatsRepository.restoreChat(chat.id);
+    this.chatsGateway.emitChatUpdated([chat.firstUserId, chat.secondUserId], chat.id);
+  }
+
+  async deleteChatAsRoot(chatId: number): Promise<void> {
+    const chat = await this.chatsRepository.findByIdWithDeleted(chatId);
+    if (!chat) {
+      throw new NotFoundException('Chat not found');
+    }
+    if (!chat.deletedAt) {
+      await this.chatsRepository.softDeleteChat(chat);
+      this.chatsGateway.emitChatDeleted(
+        [chat.firstUserId, chat.secondUserId],
+        chat.id,
+      );
+    }
+  }
+
   private mapChat(
     chat: Chat,
     currentUserId: number,

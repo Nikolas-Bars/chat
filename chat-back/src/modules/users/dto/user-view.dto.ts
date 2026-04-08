@@ -1,4 +1,5 @@
 import { User } from '../domain/user.entity';
+import { UserRole } from '../domain/user-role.enum';
 
 export class UserViewDto {
   id: number;
@@ -11,6 +12,7 @@ export class UserViewDto {
   company: string | null;
   createdAt: Date;
   updatedAt: Date;
+  role: UserRole;
 
   static fromEntity(user: User): UserViewDto {
     const dto = new UserViewDto();
@@ -24,6 +26,7 @@ export class UserViewDto {
     dto.company = user.company;
     dto.createdAt = user.createdAt;
     dto.updatedAt = user.updatedAt;
+    dto.role = user.role;
     return dto;
   }
 }

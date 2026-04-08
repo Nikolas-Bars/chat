@@ -117,6 +117,43 @@ export async function removeMessageReactionApi(
   return (await res.json()) as Array<{ value: string; count: number; reactedByMe: boolean }>
 }
 
+export type RootManagedChatItem = {
+  id: number
+  participantIds: number[]
+  targetUserId: number
+  peer: { id: number; name: string; lastName: string; email: string }
+  deletedAt: string | null
+  updatedAt: string
+  createdAt: string
+}
+
+export async function fetchRootUserChatsApi(userId: number): Promise<RootManagedChatItem[]> {
+  const res = await fetch(apiUrl(`/chats/admin/users/${userId}/chats`), {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Не удалось загрузить чаты пользователя (${res.status})`)
+  return (await res.json()) as RootManagedChatItem[]
+}
+
+export async function restoreChatAsRootApi(chatId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/chats/admin/chats/${chatId}/restore`), {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Не удалось восстановить чат (${res.status})`)
+}
+
+export async function deleteChatAsRootApi(chatId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/chats/admin/chats/${chatId}/delete`), {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Не удалось удалить чат (${res.status})`)
+}
+
 export async function updateMessageApi(
   chatId: number,
   messageId: number,
