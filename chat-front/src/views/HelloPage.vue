@@ -613,7 +613,7 @@ async function logout() {
                 "
                 @click="toggleReaction(m.id, r.value, r.reactedByMe)"
               >
-                {{ r.value }} {{ r.count }}
+                {{ r.value }}<span v-if="r.count > 1"> {{ r.count }}</span>
               </button>
               <button
                 class="rounded-full border border-slate-300 px-2 py-0.5 text-[11px] dark:border-slate-600"

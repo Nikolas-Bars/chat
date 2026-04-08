@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: ../chat-back
+      dockerfile: Dockerfile.prod
+    container_name: chat-backend
+    restart: unless-stopped
+    env_file:
+      - ./.env.prod
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/', (res) => process.exit(res.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
