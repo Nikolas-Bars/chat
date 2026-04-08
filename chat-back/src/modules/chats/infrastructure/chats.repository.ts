@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Chat } from '../domain/chat.entity';
 import { Message } from '../domain/message.entity';
+import { MessageReaction } from '../domain/message-reaction.entity';
+import { ReactionCatalog } from '../domain/reaction-catalog.entity';
 
 @Injectable()
 export class ChatsRepository {
@@ -11,6 +13,10 @@ export class ChatsRepository {
     private readonly chatRepo: Repository<Chat>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    @InjectRepository(MessageReaction)
+    private readonly messageReactionRepo: Repository<MessageReaction>,
+    @InjectRepository(ReactionCatalog)
+    private readonly reactionCatalogRepo: Repository<ReactionCatalog>,
   ) {}
 
   async findDirectByPair(firstUserId: number, secondUserId: number): Promise<Chat | null> {
@@ -102,6 +108,58 @@ export class ChatsRepository {
       }
     }
     return map;
+  }
+
+  async findReactionsByMessageIds(messageIds: number[]): Promise<MessageReaction[]> {
+    if (messageIds.length === 0) return [];
+    return this.messageReactionRepo.find({
+      where: { messageId: In(messageIds) },
+    });
+  }
+
+  async findReactionCatalog(): Promise<ReactionCatalog[]> {
+    return this.reactionCatalogRepo.find({ order: { value: 'ASC' } });
+  }
+
+  async findReactionCatalogItem(value: string): Promise<ReactionCatalog | null> {
+    return this.reactionCatalogRepo.findOne({ where: { value } });
+  }
+
+  async addReactionCatalogItem(
+    value: string,
+    createdByUserId: number,
+  ): Promise<ReactionCatalog> {
+    const item = this.reactionCatalogRepo.create({ value, createdByUserId });
+    return this.reactionCatalogRepo.save(item);
+  }
+
+  async findMessageReaction(
+    messageId: number,
+    userId: number,
+  ): Promise<MessageReaction | null> {
+    return this.messageReactionRepo.findOne({ where: { messageId, userId } });
+  }
+
+  async saveMessageReaction(
+    messageId: number,
+    userId: number,
+    reactionValue: string,
+  ): Promise<MessageReaction> {
+    const existed = await this.findMessageReaction(messageId, userId);
+    if (existed) {
+      existed.reactionValue = reactionValue;
+      return this.messageReactionRepo.save(existed);
+    }
+    const created = this.messageReactionRepo.create({
+      messageId,
+      userId,
+      reactionValue,
+    });
+    return this.messageReactionRepo.save(created);
+  }
+
+  async removeMessageReaction(messageId: number, userId: number): Promise<void> {
+    await this.messageReactionRepo.delete({ messageId, userId });
   }
 }
 

@@ -116,5 +116,26 @@ export class ChatsGateway implements OnGatewayConnection {
       this.server.to(`user:${userId}`).emit('message:deleted', payload);
     }
   }
+
+  emitMessageReactionsUpdated(
+    userIds: number[],
+    payload: {
+      chatId: number;
+      messageId: number;
+      reactions: Array<{ value: string; count: number; reactedByMe: boolean }>;
+    },
+  ): void {
+    for (const userId of userIds) {
+      const normalized = {
+        ...payload,
+        reactions: payload.reactions.map((r) => ({
+          value: r.value,
+          count: r.count,
+          reactedByMe: false,
+        })),
+      };
+      this.server.to(`user:${userId}`).emit('message:reactions-updated', normalized);
+    }
+  }
 }
 

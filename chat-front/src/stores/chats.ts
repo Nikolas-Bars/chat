@@ -2,11 +2,15 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { fetchMeApi } from '../api/auth'
 import {
+  addReactionCatalogApi,
   createDirectChatApi,
   deleteChatApi,
   deleteMessageApi,
   fetchChatsApi,
+  fetchReactionCatalogApi,
   fetchMessagesApi,
+  removeMessageReactionApi,
+  setMessageReactionApi,
   sendMessageApi,
   updateMessageApi,
   type ChatItem,
@@ -17,6 +21,7 @@ import { searchUsersApi, type UserSearchItem } from '../api/users'
 export const useChatsStore = defineStore('chats', () => {
   const currentUserId = ref<number | null>(null)
   const myLogin = ref('')
+  const myRole = ref<'root' | 'admin' | 'user'>('user')
   const chats = ref<ChatItem[]>([])
   const selectedChatId = ref<number | null>(null)
   const messages = ref<ChatMessage[]>([])
@@ -25,6 +30,7 @@ export const useChatsStore = defineStore('chats', () => {
   const search = ref('')
   const searchResults = ref<UserSearchItem[]>([])
   const isSearching = ref(false)
+  const reactionCatalog = ref<string[]>([])
 
   const selectedChat = computed(() =>
     chats.value.find((c) => c.id === selectedChatId.value) ?? null,
@@ -34,6 +40,7 @@ export const useChatsStore = defineStore('chats', () => {
     const me = await fetchMeApi()
     currentUserId.value = me.userId
     myLogin.value = me.login ?? ''
+    myRole.value = me.role
   }
 
   async function fetchChats() {
@@ -87,6 +94,39 @@ export const useChatsStore = defineStore('chats', () => {
       await fetchChats()
     } finally {
       isSending.value = false
+    }
+  }
+
+  async function fetchReactionCatalog() {
+    reactionCatalog.value = await fetchReactionCatalogApi()
+  }
+
+  async function addReactionToCatalog(value: string) {
+    await addReactionCatalogApi(value)
+    await fetchReactionCatalog()
+  }
+
+  async function setReaction(messageId: number, value: string) {
+    if (!selectedChatId.value) return
+    const reactions = await setMessageReactionApi(selectedChatId.value, messageId, value)
+    const idx = messages.value.findIndex((m) => m.id === messageId)
+    if (idx >= 0) {
+      const current = messages.value[idx]
+      if (current) {
+        messages.value[idx] = { ...current, reactions }
+      }
+    }
+  }
+
+  async function removeMyReaction(messageId: number) {
+    if (!selectedChatId.value) return
+    const reactions = await removeMessageReactionApi(selectedChatId.value, messageId)
+    const idx = messages.value.findIndex((m) => m.id === messageId)
+    if (idx >= 0) {
+      const current = messages.value[idx]
+      if (current) {
+        messages.value[idx] = { ...current, reactions }
+      }
     }
   }
 
@@ -155,9 +195,25 @@ export const useChatsStore = defineStore('chats', () => {
     }
   }
 
+  function applyMessageReactionsUpdated(payload: {
+    chatId: number
+    messageId: number
+    reactions: Array<{ value: string; count: number; reactedByMe: boolean }>
+  }) {
+    if (selectedChatId.value !== payload.chatId) return
+    const idx = messages.value.findIndex((m) => m.id === payload.messageId)
+    if (idx >= 0) {
+      const current = messages.value[idx]
+      if (current) {
+        messages.value[idx] = { ...current, reactions: payload.reactions }
+      }
+    }
+  }
+
   return {
     currentUserId,
     myLogin,
+    myRole,
     chats,
     selectedChatId,
     selectedChat,
@@ -167,6 +223,7 @@ export const useChatsStore = defineStore('chats', () => {
     search,
     searchResults,
     isSearching,
+    reactionCatalog,
     fetchMe,
     fetchChats,
     fetchMessages,
@@ -174,6 +231,10 @@ export const useChatsStore = defineStore('chats', () => {
     createChatWith,
     runSearch,
     sendMessage,
+    fetchReactionCatalog,
+    addReactionToCatalog,
+    setReaction,
+    removeMyReaction,
     saveEditMessage,
     deleteMessage,
     deleteChat,
@@ -181,6 +242,7 @@ export const useChatsStore = defineStore('chats', () => {
     applyMessageUpdated,
     applyMessageDeleted,
     applyChatDeleted,
+    applyMessageReactionsUpdated,
   }
 })
 

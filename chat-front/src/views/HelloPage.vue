@@ -12,6 +12,7 @@ const chatsStore = useChatsStore()
 const {
   currentUserId,
   myLogin,
+  myRole,
   chats,
   selectedChatId,
   selectedChat,
@@ -21,6 +22,7 @@ const {
   search,
   searchResults,
   isSearching,
+  reactionCatalog,
 } = storeToRefs(chatsStore)
 
 const isLoggingOut = ref(false)
@@ -31,6 +33,8 @@ const messageText = ref('')
 const socket = ref<Socket | null>(null)
 const editingMessageId = ref<number | null>(null)
 const editingText = ref('')
+const reactionPickerMessageId = ref<number | null>(null)
+const newReactionValue = ref('')
 
 function getRealtimeBaseUrl(): string {
   const api = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
@@ -66,6 +70,13 @@ function connectRealtime() {
   })
   s.on('chat:deleted', async (payload: { chatId: number }) => {
     chatsStore.applyChatDeleted(payload)
+  })
+  s.on('message:reactions-updated', (payload: {
+    chatId: number
+    messageId: number
+    reactions: Array<{ value: string; count: number; reactedByMe: boolean }>
+  }) => {
+    chatsStore.applyMessageReactionsUpdated(payload)
   })
   socket.value = s
 }
@@ -140,9 +151,38 @@ async function deleteChat() {
   }
 }
 
+function toggleReactionPicker(messageId: number) {
+  reactionPickerMessageId.value =
+    reactionPickerMessageId.value === messageId ? null : messageId
+}
+
+async function toggleReaction(messageId: number, value: string, reactedByMe: boolean) {
+  try {
+    if (reactedByMe) {
+      await chatsStore.removeMyReaction(messageId)
+      return
+    }
+    await chatsStore.setReaction(messageId, value)
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось обновить реакцию'
+  }
+}
+
+async function addReactionToCatalog() {
+  try {
+    const value = newReactionValue.value.trim()
+    if (!value) return
+    await chatsStore.addReactionToCatalog(value)
+    newReactionValue.value = ''
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось добавить реакцию'
+  }
+}
+
 onMounted(async () => {
   try {
     await chatsStore.fetchMe()
+    await chatsStore.fetchReactionCatalog()
     await chatsStore.fetchChats()
     if (chats.value[0]) {
       await selectChat(chats.value[0].id)
@@ -200,7 +240,7 @@ async function logout() {
           ☰
         </button>
         <div class="text-sm text-slate-500 dark:text-slate-400">Мой логин:</div>
-        <div class="text-sm font-semibold">{{ myLogin || '—' }}</div>
+        <div class="text-sm font-semibold">{{ myLogin || '—' }} ({{ myRole }})</div>
       </div>
       <button
         type="button"
@@ -247,6 +287,24 @@ async function logout() {
           <div class="font-medium">{{ u.name }} {{ u.lastName }}</div>
           <div class="text-xs text-slate-500">{{ u.email }}</div>
         </button>
+      </div>
+
+      <div v-if="myRole === 'root'" class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+        <div class="mb-2 text-xs text-slate-500">Добавить реакцию в общий каталог</div>
+        <div class="flex gap-2">
+          <input
+            v-model="newReactionValue"
+            class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
+            placeholder="Например: 🤖"
+          />
+          <button
+            type="button"
+            class="rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            @click="addReactionToCatalog"
+          >
+            Добавить
+          </button>
+        </div>
       </div>
 
       <div class="space-y-2">
@@ -326,6 +384,40 @@ async function logout() {
             <div class="mt-1 text-[10px] opacity-70">
               {{ new Date(m.createdAt).toLocaleString() }}
               <span v-if="m.updatedAt"> · изменено</span>
+            </div>
+            <div class="mt-1 flex flex-wrap items-center gap-1">
+              <button
+                v-for="r in m.reactions ?? []"
+                :key="`${m.id}-${r.value}`"
+                class="rounded-full border px-2 py-0.5 text-[11px]"
+                :class="
+                  r.reactedByMe
+                    ? 'border-emerald-500 bg-emerald-500/20'
+                    : 'border-slate-300 dark:border-slate-600'
+                "
+                @click="toggleReaction(m.id, r.value, r.reactedByMe)"
+              >
+                {{ r.value }} {{ r.count }}
+              </button>
+              <button
+                class="rounded-full border border-slate-300 px-2 py-0.5 text-[11px] dark:border-slate-600"
+                @click="toggleReactionPicker(m.id)"
+              >
+                +
+              </button>
+            </div>
+            <div
+              v-if="reactionPickerMessageId === m.id"
+              class="mt-1 flex flex-wrap gap-1 rounded-xl border border-slate-200 p-2 dark:border-slate-700"
+            >
+              <button
+                v-for="value in reactionCatalog"
+                :key="`${m.id}-catalog-${value}`"
+                class="rounded-md border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+                @click="toggleReaction(m.id, value, false)"
+              >
+                {{ value }}
+              </button>
             </div>
             <div
               v-if="m.senderId === currentUserId && editingMessageId !== m.id"

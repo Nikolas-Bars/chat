@@ -70,6 +70,7 @@ export class AuthController {
       user.userId,
       user.email,
       user.login,
+      user.role,
     );
 
     const cookieOpts = cookieOptions();
@@ -108,6 +109,7 @@ export class AuthController {
       userId: Number(user.userId),
       login: user.login,
       email: user.email,
+      role: user.role,
     };
   }
 

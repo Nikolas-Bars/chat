@@ -8,6 +8,11 @@ export type ChatMessage = {
   content: string
   createdAt: string
   updatedAt?: string
+  reactions?: Array<{
+    value: string
+    count: number
+    reactedByMe: boolean
+  }>
 }
 
 export type ChatItem = {
@@ -63,6 +68,53 @@ export async function sendMessageApi(chatId: number, content: string): Promise<v
     body: JSON.stringify({ content }),
   })
   if (!res.ok) throw new Error(`Не удалось отправить сообщение (${res.status})`)
+}
+
+export async function fetchReactionCatalogApi(): Promise<string[]> {
+  const res = await fetch(apiUrl('/chats/reactions/catalog'), {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Не удалось загрузить реакции (${res.status})`)
+  return (await res.json()) as string[]
+}
+
+export async function addReactionCatalogApi(value: string): Promise<void> {
+  const res = await fetch(apiUrl('/chats/reactions/catalog'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    credentials: 'include',
+    body: JSON.stringify({ value }),
+  })
+  if (!res.ok) throw new Error(`Не удалось добавить реакцию (${res.status})`)
+}
+
+export async function setMessageReactionApi(
+  chatId: number,
+  messageId: number,
+  value: string,
+): Promise<Array<{ value: string; count: number; reactedByMe: boolean }>> {
+  const res = await fetch(apiUrl(`/chats/${chatId}/messages/${messageId}/reaction`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    credentials: 'include',
+    body: JSON.stringify({ value }),
+  })
+  if (!res.ok) throw new Error(`Не удалось поставить реакцию (${res.status})`)
+  return (await res.json()) as Array<{ value: string; count: number; reactedByMe: boolean }>
+}
+
+export async function removeMessageReactionApi(
+  chatId: number,
+  messageId: number,
+): Promise<Array<{ value: string; count: number; reactedByMe: boolean }>> {
+  const res = await fetch(apiUrl(`/chats/${chatId}/messages/${messageId}/reaction`), {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Не удалось удалить реакцию (${res.status})`)
+  return (await res.json()) as Array<{ value: string; count: number; reactedByMe: boolean }>
 }
 
 export async function updateMessageApi(

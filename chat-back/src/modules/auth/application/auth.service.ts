@@ -8,6 +8,7 @@ import { RegisterUserDto } from '../dto/register.user.dto';
 import { UsersExternalService } from '../../users/application/users-external.service';
 import { LoginInputDto } from '../api/input-dto/login.input.dto';
 import { UserContextDto } from './user-context.dto';
+import { UserRole } from '../../users/domain/user-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -59,12 +60,13 @@ export class AuthService {
     userId: string,
     email: string,
     login: string,
+    role: UserRole,
   ): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
     const accessToken = this.jwtService.sign(
-      { sub: userId, email, login },
+      { sub: userId, email, login, role },
       {
         expiresIn: '15m',
         secret: process.env.JWT_ACCESS_SECRET || 'secret',
@@ -124,6 +126,7 @@ export class AuthService {
       userId: String(user.id),
       login: user.name,
       email: user.email,
+      role: user.role,
     };
   }
 }

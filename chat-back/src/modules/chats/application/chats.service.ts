@@ -8,6 +8,7 @@ import { UsersExternalService } from '../../users/application/users-external.ser
 import { ChatsRepository } from '../infrastructure/chats.repository';
 import { Chat } from '../domain/chat.entity';
 import { ChatsGateway } from '../api/chats.gateway';
+import { UserRole } from '../../users/domain/user-role.enum';
 
 function sortPair(a: number, b: number): [number, number] {
   return a < b ? [a, b] : [b, a];
@@ -25,6 +26,27 @@ export class ChatsService {
     if (chat.firstUserId !== userId && chat.secondUserId !== userId) {
       throw new ForbiddenException('You are not a participant of this chat');
     }
+  }
+
+  private buildReactionsSummary(
+    reactions: Array<{ userId: number; reactionValue: string }>,
+    currentUserId: number,
+  ): Array<{ value: string; count: number; reactedByMe: boolean }> {
+    const map = new Map<string, { value: string; count: number; reactedByMe: boolean }>();
+    for (const reaction of reactions) {
+      const existed = map.get(reaction.reactionValue);
+      if (existed) {
+        existed.count += 1;
+        if (reaction.userId === currentUserId) existed.reactedByMe = true;
+        continue;
+      }
+      map.set(reaction.reactionValue, {
+        value: reaction.reactionValue,
+        count: 1,
+        reactedByMe: reaction.userId === currentUserId,
+      });
+    }
+    return Array.from(map.values());
   }
 
   async createOrGetDirectChat(currentUserId: number, targetUserId: number) {
@@ -137,6 +159,15 @@ export class ChatsService {
     }
     this.ensureParticipant(chat, currentUserId);
     const messages = await this.chatsRepository.findMessagesByChat(chatId);
+    const reactions = await this.chatsRepository.findReactionsByMessageIds(
+      messages.map((m) => m.id),
+    );
+    const reactionsByMessage = new Map<number, Array<{ userId: number; reactionValue: string }>>();
+    for (const reaction of reactions) {
+      const bucket = reactionsByMessage.get(reaction.messageId) ?? [];
+      bucket.push({ userId: reaction.userId, reactionValue: reaction.reactionValue });
+      reactionsByMessage.set(reaction.messageId, bucket);
+    }
     return messages.map((m) => ({
       id: m.id,
       chatId: m.chatId,
@@ -144,6 +175,10 @@ export class ChatsService {
       content: m.content,
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
+      reactions: this.buildReactionsSummary(
+        reactionsByMessage.get(m.id) ?? [],
+        currentUserId,
+      ),
     }));
   }
 
@@ -166,6 +201,8 @@ export class ChatsService {
       senderId: message.senderId,
       content: message.content,
       createdAt: message.createdAt,
+      updatedAt: message.updatedAt,
+      reactions: [],
     };
     this.chatsGateway.emitMessageNew(
       [chat.firstUserId, chat.secondUserId],
@@ -220,6 +257,12 @@ export class ChatsService {
       content: saved.content,
       createdAt: saved.createdAt,
       updatedAt: saved.updatedAt,
+      reactions: this.buildReactionsSummary(
+        (
+          await this.chatsRepository.findReactionsByMessageIds([saved.id])
+        ).map((r) => ({ userId: r.userId, reactionValue: r.reactionValue })),
+        currentUserId,
+      ),
     };
   }
 
@@ -261,6 +304,75 @@ export class ChatsService {
       [chat.firstUserId, chat.secondUserId],
       chat.id,
     );
+  }
+
+  async getReactionCatalog(): Promise<string[]> {
+    const items = await this.chatsRepository.findReactionCatalog();
+    return items.map((i) => i.value);
+  }
+
+  async addReactionToCatalog(currentUserId: number, role: UserRole, value: string): Promise<void> {
+    if (role !== UserRole.ROOT) {
+      throw new ForbiddenException('Only root can add reactions to catalog');
+    }
+    const normalized = value.trim();
+    if (!normalized) {
+      throw new BadRequestException('Reaction cannot be empty');
+    }
+    const existed = await this.chatsRepository.findReactionCatalogItem(normalized);
+    if (existed) return;
+    await this.chatsRepository.addReactionCatalogItem(normalized, currentUserId);
+  }
+
+  async setMessageReaction(
+    currentUserId: number,
+    chatId: number,
+    messageId: number,
+    value: string,
+  ): Promise<Array<{ value: string; count: number; reactedByMe: boolean }>> {
+    const chat = await this.chatsRepository.findById(chatId);
+    if (!chat) throw new NotFoundException('Chat not found');
+    this.ensureParticipant(chat, currentUserId);
+    const message = await this.chatsRepository.findMessageById(chatId, messageId);
+    if (!message) throw new NotFoundException('Message not found');
+    const normalized = value.trim();
+    if (!normalized) throw new BadRequestException('Reaction cannot be empty');
+    const allowed = await this.chatsRepository.findReactionCatalogItem(normalized);
+    if (!allowed) throw new BadRequestException('Reaction is not allowed');
+    await this.chatsRepository.saveMessageReaction(messageId, currentUserId, normalized);
+    const allReactions = await this.chatsRepository.findReactionsByMessageIds([messageId]);
+    const summary = this.buildReactionsSummary(
+      allReactions.map((r) => ({ userId: r.userId, reactionValue: r.reactionValue })),
+      currentUserId,
+    );
+    this.chatsGateway.emitMessageReactionsUpdated(
+      [chat.firstUserId, chat.secondUserId],
+      { chatId, messageId, reactions: summary },
+    );
+    return summary;
+  }
+
+  async removeMessageReaction(
+    currentUserId: number,
+    chatId: number,
+    messageId: number,
+  ): Promise<Array<{ value: string; count: number; reactedByMe: boolean }>> {
+    const chat = await this.chatsRepository.findById(chatId);
+    if (!chat) throw new NotFoundException('Chat not found');
+    this.ensureParticipant(chat, currentUserId);
+    const message = await this.chatsRepository.findMessageById(chatId, messageId);
+    if (!message) throw new NotFoundException('Message not found');
+    await this.chatsRepository.removeMessageReaction(messageId, currentUserId);
+    const allReactions = await this.chatsRepository.findReactionsByMessageIds([messageId]);
+    const summary = this.buildReactionsSummary(
+      allReactions.map((r) => ({ userId: r.userId, reactionValue: r.reactionValue })),
+      currentUserId,
+    );
+    this.chatsGateway.emitMessageReactionsUpdated(
+      [chat.firstUserId, chat.secondUserId],
+      { chatId, messageId, reactions: summary },
+    );
+    return summary;
   }
 
   private mapChat(
