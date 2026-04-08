@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { io, type Socket } from 'socket.io-client'
 import { storeToRefs } from 'pinia'
 import { logoutApi } from '../api/auth'
 import { type ChatMessage } from '../api/chats'
 import { useChatsStore } from '../stores/chats'
+import {
+  ensureNotificationAudioUnlocked,
+  playIncomingMessageSound,
+} from '../utils/notification-sound'
+import { resetTabUnreadBadge, updateTabUnreadBadge } from '../utils/tab-unread-badge'
 
 const router = useRouter()
 const chatsStore = useChatsStore()
@@ -16,6 +21,7 @@ const {
   chats,
   selectedChatId,
   selectedChat,
+  totalUnreadCount,
   messages,
   isMessagesLoading,
   isSending,
@@ -48,6 +54,33 @@ const selectedRoleUserId = ref<number | null>(null)
 const rootRoleDropdownRoot = ref<HTMLElement | null>(null)
 const rootChatsDropdownRoot = ref<HTMLElement | null>(null)
 let chatsRefreshTimer: number | null = null
+const lastMessageNewAtByChatId = new Map<number, number>()
+const messagesScrollRoot = ref<HTMLElement | null>(null)
+
+watch(
+  totalUnreadCount,
+  (n) => {
+    updateTabUnreadBadge(n)
+  },
+  { immediate: true },
+)
+
+function scrollMessagesToBottom() {
+  const el = messagesScrollRoot.value
+  if (!el) return
+  el.scrollTop = el.scrollHeight
+}
+
+watch(
+  [selectedChatId, isMessagesLoading],
+  ([chatId, loading]) => {
+    if (!chatId || loading) return
+    nextTick(() => {
+      requestAnimationFrame(() => scrollMessagesToBottom())
+    })
+  },
+  { flush: 'post' },
+)
 
 function closeRootDropdownsOnOutsideClick(ev: MouseEvent) {
   const t = ev.target as Node | null
@@ -91,11 +124,22 @@ function connectRealtime() {
   s.on('connect_error', () => {
     // Не блокируем UI: realtime опционален, REST остаётся рабочим.
   })
-  s.on('chat:updated', async () => {
+  s.on('chat:updated', (payload: { chatId: number }) => {
+    const t = lastMessageNewAtByChatId.get(payload.chatId)
+    if (t !== undefined && Date.now() - t < 600) {
+      return
+    }
     scheduleChatsRefresh()
   })
   s.on('message:new', async (payload: ChatMessage) => {
+    lastMessageNewAtByChatId.set(payload.chatId, Date.now())
+    if (currentUserId.value !== null && payload.senderId !== currentUserId.value) {
+      playIncomingMessageSound()
+    }
     chatsStore.applyMessageNew(payload)
+    if (payload.chatId === selectedChatId.value && payload.senderId !== currentUserId.value) {
+      void chatsStore.markCurrentChatRead()
+    }
   })
   s.on('message:updated', async (payload: { id: number; chatId: number; content: string; updatedAt: string }) => {
     chatsStore.applyMessageUpdated(payload)
@@ -112,6 +156,13 @@ function connectRealtime() {
     reactions: Array<{ value: string; count: number; reactedByMe: boolean }>
   }) => {
     chatsStore.applyMessageReactionsUpdated(payload)
+  })
+  s.on('chat:read-updated', (payload: {
+    chatId: number
+    readerUserId: number
+    lastReadMessageId: number
+  }) => {
+    chatsStore.applyChatReadUpdated(payload)
   })
   socket.value = s
 }
@@ -286,6 +337,13 @@ async function runRootRolesSearch() {
 
 onMounted(async () => {
   document.addEventListener('click', closeRootDropdownsOnOutsideClick, true)
+  document.addEventListener(
+    'pointerdown',
+    () => {
+      void ensureNotificationAudioUnlocked()
+    },
+    { once: true, capture: true },
+  )
   try {
     await chatsStore.fetchMe()
     await chatsStore.fetchReactionCatalog()
@@ -294,10 +352,8 @@ onMounted(async () => {
       await chatsStore.fetchUsersForRootRoles()
       await chatsStore.fetchUsersForRootChats()
     }
-    if (chats.value[0]) {
-      await selectChat(chats.value[0].id)
-    }
     connectRealtime()
+    isSidebarOpen.value = true
   } catch (e) {
     if (e instanceof Error) {
       if (e.message === 'Сессия недействительна') {
@@ -314,6 +370,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  resetTabUnreadBadge()
   document.removeEventListener('click', closeRootDropdownsOnOutsideClick, true)
   if (chatsRefreshTimer !== null) {
     window.clearTimeout(chatsRefreshTimer)
@@ -349,10 +406,16 @@ async function logout() {
       <div class="flex items-center gap-3">
         <button
           type="button"
-          class="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+          class="relative rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
           @click="toggleSidebar"
         >
           ☰
+          <span
+            v-if="totalUnreadCount > 0"
+            class="absolute -right-1 -top-1 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white"
+          >
+            {{ totalUnreadCount > 99 ? '99+' : totalUnreadCount }}
+          </span>
         </button>
         <div class="text-sm text-slate-500 dark:text-slate-400">Мой логин:</div>
         <div class="text-sm font-semibold">{{ myLogin || '—' }} ({{ myRole }})</div>
@@ -401,8 +464,23 @@ async function logout() {
         />
       </div>
 
-      <div v-if="isSearching" class="mb-3 text-xs text-slate-500">Ищем...</div>
-      <div v-if="searchResults.length" class="mb-4 space-y-2">
+      <div
+        v-if="search.trim() && isSearching"
+        class="mb-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+      >
+        <span
+          class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"
+          aria-hidden="true"
+        />
+        Ищем...
+      </div>
+      <div
+        v-else-if="search.trim() && !searchResults.length"
+        class="mb-3 text-xs text-slate-500 dark:text-slate-400"
+      >
+        Ничего не найдено
+      </div>
+      <div v-else-if="searchResults.length" class="mb-4 space-y-2">
         <button
           v-for="u in searchResults"
           :key="u.id"
@@ -426,11 +504,21 @@ async function logout() {
           "
           @click="selectChat(chat.id)"
         >
-          <div class="text-sm font-medium">
-            {{ chat.peer.name }} {{ chat.peer.lastName }}
-          </div>
-          <div class="truncate text-xs text-slate-500">
-            {{ chat.lastMessage?.content ?? 'Нет сообщений' }}
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium">
+                {{ chat.peer.name }} {{ chat.peer.lastName }}
+              </div>
+              <div class="truncate text-xs text-slate-500">
+                {{ chat.lastMessage?.content ?? 'Нет сообщений' }}
+              </div>
+            </div>
+            <span
+              v-if="(chat.unreadCount ?? 0) > 0"
+              class="flex min-h-[1.125rem] min-w-[1.125rem] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white"
+            >
+              {{ (chat.unreadCount ?? 0) > 99 ? '99+' : chat.unreadCount }}
+            </span>
           </div>
         </button>
       </div>
@@ -579,15 +667,73 @@ async function logout() {
 
     <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div v-if="isBootLoading" class="text-sm text-slate-500">Загружаем...</div>
-      <div v-else-if="!selectedChat" class="text-sm text-slate-500">
-        Выбери чат слева или найди пользователя, чтобы начать диалог.
+      <div
+        v-else-if="!selectedChat"
+        class="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-2 text-center"
+      >
+        <p class="max-w-md text-base text-slate-600 dark:text-slate-300">
+          Выберите чат в списке слева или найдите пользователя через поиск.
+        </p>
+        <div class="w-full max-w-sm text-left">
+          <label class="mb-1 block text-xs text-slate-500 dark:text-slate-400">
+            Поиск пользователя
+          </label>
+          <input
+            v-model="search"
+            type="search"
+            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
+            placeholder="Имя, фамилия или email"
+            @input="runSearch"
+          />
+          <div v-if="search.trim()" class="mt-3">
+            <div
+              v-if="isSearching"
+              class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"
+            >
+              <span
+                class="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"
+                aria-hidden="true"
+              />
+              Ищем...
+            </div>
+            <div
+              v-else-if="!searchResults.length"
+              class="text-sm text-slate-500 dark:text-slate-400"
+            >
+              Ничего не найдено. Попробуйте другой запрос.
+            </div>
+            <div v-else class="max-h-60 space-y-2 overflow-y-auto rounded-xl border border-slate-200 p-2 dark:border-slate-800">
+              <button
+                v-for="u in searchResults"
+                :key="`home-search-${u.id}`"
+                type="button"
+                class="w-full rounded-lg border border-slate-200 p-2 text-left text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                @click="createChatWith(u.id)"
+              >
+                <div class="font-medium">{{ u.name }} {{ u.lastName }}</div>
+                <div class="text-xs text-slate-500">{{ u.email }}</div>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="max-w-md text-xs text-slate-500 dark:text-slate-400">
+          После выбора чата переписка откроется здесь.
+        </p>
       </div>
       <div v-else class="flex h-[70vh] flex-col">
         <div class="mb-3 border-b border-slate-200 pb-3 dark:border-slate-800">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <div class="font-medium">
-                {{ selectedChat.peer.name }} {{ selectedChat.peer.lastName }}
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-medium">
+                  {{ selectedChat.peer.name }} {{ selectedChat.peer.lastName }}
+                </span>
+                <span
+                  v-if="(selectedChat.unreadCount ?? 0) > 0"
+                  class="flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold leading-none text-white"
+                >
+                  {{ (selectedChat.unreadCount ?? 0) > 99 ? '99+' : selectedChat.unreadCount }}
+                </span>
               </div>
               <div class="text-xs text-slate-500">{{ selectedChat.peer.email }}</div>
             </div>
@@ -601,7 +747,7 @@ async function logout() {
           </div>
         </div>
 
-        <div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+        <div ref="messagesScrollRoot" class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
           <div v-if="isMessagesLoading" class="text-sm text-slate-500">Загрузка сообщений...</div>
           <div
             v-for="m in messages"
@@ -632,6 +778,12 @@ async function logout() {
             <div class="mt-1 text-[10px] opacity-70">
               {{ new Date(m.createdAt).toLocaleString() }}
               <span v-if="isMessageEdited(m)"> · изменено</span>
+              <span
+                v-if="m.senderId === currentUserId && m.readByPeer"
+                class="text-emerald-500 dark:text-emerald-400"
+              >
+                · прочитано
+              </span>
             </div>
             <div class="mt-1 flex flex-wrap items-center gap-1">
               <button

@@ -28,6 +28,23 @@ export class ChatsService {
     }
   }
 
+  private getPeerUserId(chat: Chat, currentUserId: number): number {
+    return chat.firstUserId === currentUserId ? chat.secondUserId : chat.firstUserId;
+  }
+
+  private isMessageReadByPeer(
+    messageId: number,
+    senderId: number,
+    currentUserId: number,
+    peerLastReadMessageId: number | null,
+  ): boolean {
+    return (
+      senderId === currentUserId &&
+      peerLastReadMessageId !== null &&
+      peerLastReadMessageId >= messageId
+    );
+  }
+
   private buildReactionsSummary(
     reactions: Array<{ userId: number; reactionValue: string }>,
     currentUserId: number,
@@ -72,6 +89,15 @@ export class ChatsService {
         [currentUserId, targetUserId],
         activeChat.id,
       );
+      const myRead = await this.chatsRepository.findReadState(
+        activeChat.id,
+        currentUserId,
+      );
+      const unreadCount = await this.chatsRepository.countUnreadMessages(
+        activeChat.id,
+        currentUserId,
+        myRead?.lastReadMessageId ?? null,
+      );
       return this.mapChat(
         activeChat,
         currentUserId,
@@ -80,6 +106,8 @@ export class ChatsService {
         target.name,
         target.lastName,
         target.email,
+        null,
+        unreadCount,
       );
     }
     const created = await this.chatsRepository.createDirect(
@@ -90,6 +118,12 @@ export class ChatsService {
       [currentUserId, targetUserId],
       created.id,
     );
+    const myRead = await this.chatsRepository.findReadState(created.id, currentUserId);
+    const unreadCount = await this.chatsRepository.countUnreadMessages(
+      created.id,
+      currentUserId,
+      myRead?.lastReadMessageId ?? null,
+    );
     return this.mapChat(
       created,
       currentUserId,
@@ -98,6 +132,8 @@ export class ChatsService {
       target.name,
       target.lastName,
       target.email,
+      null,
+      unreadCount,
     );
   }
 
@@ -106,6 +142,7 @@ export class ChatsService {
     const chatIds = chats.map((c) => c.id);
     const lastMessages =
       await this.chatsRepository.findLastMessagesByChatIds(chatIds);
+    const readStates = await this.chatsRepository.findReadStatesByChatIds(chatIds);
 
     const peerIds = new Set<number>();
     for (const chat of chats) {
@@ -119,6 +156,14 @@ export class ChatsService {
       number,
       { id: number; name: string; lastName: string; email: string }
     >();
+    const peerLastReadMessageIdByChat = new Map<number, number | null>();
+    for (const chat of chats) {
+      const peerUserId = this.getPeerUserId(chat, currentUserId);
+      const peerState =
+        readStates.find((state) => state.chatId === chat.id && state.userId === peerUserId) ??
+        null;
+      peerLastReadMessageIdByChat.set(chat.id, peerState?.lastReadMessageId ?? null);
+    }
     await Promise.all(
       Array.from(peerIds).map(async (id) => {
         const user = await this.usersExternalService.findById(id);
@@ -133,7 +178,24 @@ export class ChatsService {
       }),
     );
 
-    return chats.map((chat) => {
+    const myLastReadMessageIdByChat = new Map<number, number | null>();
+    for (const state of readStates) {
+      if (state.userId === currentUserId) {
+        myLastReadMessageIdByChat.set(state.chatId, state.lastReadMessageId ?? null);
+      }
+    }
+
+    const unreadCounts = await Promise.all(
+      chats.map((chat) =>
+        this.chatsRepository.countUnreadMessages(
+          chat.id,
+          currentUserId,
+          myLastReadMessageIdByChat.get(chat.id) ?? null,
+        ),
+      ),
+    );
+
+    return chats.map((chat, index) => {
       const peerId =
         chat.firstUserId === currentUserId
           ? chat.secondUserId
@@ -148,6 +210,8 @@ export class ChatsService {
         peer?.name ?? 'Unknown',
         peer?.lastName ?? '',
         peer?.email ?? '',
+        peerLastReadMessageIdByChat.get(chat.id) ?? null,
+        unreadCounts[index] ?? 0,
       );
     });
   }
@@ -159,6 +223,9 @@ export class ChatsService {
     }
     this.ensureParticipant(chat, currentUserId);
     const messages = await this.chatsRepository.findMessagesByChat(chatId);
+    const peerUserId = this.getPeerUserId(chat, currentUserId);
+    const peerReadState = await this.chatsRepository.findReadState(chat.id, peerUserId);
+    const peerLastReadMessageId = peerReadState?.lastReadMessageId ?? null;
     const reactions = await this.chatsRepository.findReactionsByMessageIds(
       messages.map((m) => m.id),
     );
@@ -175,6 +242,12 @@ export class ChatsService {
       content: m.content,
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
+      readByPeer: this.isMessageReadByPeer(
+        m.id,
+        m.senderId,
+        currentUserId,
+        peerLastReadMessageId,
+      ),
       reactions: this.buildReactionsSummary(
         reactionsByMessage.get(m.id) ?? [],
         currentUserId,
@@ -202,6 +275,7 @@ export class ChatsService {
       content: message.content,
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
+      readByPeer: false,
       reactions: [],
     };
     this.chatsGateway.emitMessageNew(
@@ -234,6 +308,11 @@ export class ChatsService {
       throw new ForbiddenException('You can edit only your messages');
     }
 
+    const peerReadState = await this.chatsRepository.findReadState(
+      chat.id,
+      this.getPeerUserId(chat, currentUserId),
+    );
+
     message.content = content.trim();
     const saved = await this.chatsRepository.saveMessage(message);
     this.chatsGateway.emitMessageUpdated(
@@ -257,6 +336,12 @@ export class ChatsService {
       content: saved.content,
       createdAt: saved.createdAt,
       updatedAt: saved.updatedAt,
+      readByPeer: this.isMessageReadByPeer(
+        saved.id,
+        saved.senderId,
+        currentUserId,
+        peerReadState?.lastReadMessageId ?? null,
+      ),
       reactions: this.buildReactionsSummary(
         (
           await this.chatsRepository.findReactionsByMessageIds([saved.id])
@@ -375,6 +460,44 @@ export class ChatsService {
     return summary;
   }
 
+  async markChatRead(currentUserId: number, chatId: number, messageId: number) {
+    const chat = await this.chatsRepository.findById(chatId);
+    if (!chat) throw new NotFoundException('Chat not found');
+    this.ensureParticipant(chat, currentUserId);
+
+    const message = await this.chatsRepository.findMessageById(chatId, messageId);
+    if (!message) throw new NotFoundException('Message not found');
+
+    const currentState = await this.chatsRepository.findReadState(chatId, currentUserId);
+    const currentLastReadMessageId = currentState?.lastReadMessageId ?? null;
+    if (currentLastReadMessageId !== null && currentLastReadMessageId >= messageId) {
+      return {
+        chatId,
+        readerUserId: currentUserId,
+        lastReadMessageId: currentLastReadMessageId,
+      };
+    }
+
+    const saved = await this.chatsRepository.saveReadState(
+      chatId,
+      currentUserId,
+      messageId,
+    );
+    this.chatsGateway.emitChatReadUpdated(
+      [chat.firstUserId, chat.secondUserId],
+      {
+        chatId,
+        readerUserId: currentUserId,
+        lastReadMessageId: saved.lastReadMessageId ?? messageId,
+      },
+    );
+    return {
+      chatId,
+      readerUserId: currentUserId,
+      lastReadMessageId: saved.lastReadMessageId ?? messageId,
+    };
+  }
+
   async listChatsForUserAsRoot(targetUserId: number) {
     const target = await this.usersExternalService.findById(targetUserId);
     if (!target) {
@@ -462,6 +585,8 @@ export class ChatsService {
     peerName: string,
     peerLastName: string,
     peerEmail: string,
+    peerLastReadMessageId: number | null,
+    unreadCount: number,
   ) {
     return {
       id: chat.id,
@@ -483,6 +608,8 @@ export class ChatsService {
         : null,
       createdAt: chat.createdAt,
       updatedAt: chat.updatedAt,
+      peerLastReadMessageId,
+      unreadCount,
     };
   }
 }

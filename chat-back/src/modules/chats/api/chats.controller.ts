@@ -21,6 +21,7 @@ import { SendMessageInputDto } from './input-dto/send-message.input.dto';
 import { UpdateMessageInputDto } from './input-dto/update-message.input.dto';
 import { SetMessageReactionInputDto } from './input-dto/set-message-reaction.input.dto';
 import { AddReactionCatalogInputDto } from './input-dto/add-reaction-catalog.input.dto';
+import { MarkChatReadInputDto } from './input-dto/mark-chat-read.input.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('chats')
@@ -79,6 +80,15 @@ export class ChatsController {
     @ExtractUserFromRequest() user: UserContextDto,
   ): Promise<void> {
     await this.chatsService.deleteMessage(Number(user.userId), chatId, messageId);
+  }
+
+  @Patch(':chatId/read')
+  async markRead(
+    @Param('chatId', ParseIntPipe) chatId: number,
+    @Body() body: MarkChatReadInputDto,
+    @ExtractUserFromRequest() user: UserContextDto,
+  ) {
+    return this.chatsService.markChatRead(Number(user.userId), chatId, body.messageId);
   }
 
   @Delete(':chatId')

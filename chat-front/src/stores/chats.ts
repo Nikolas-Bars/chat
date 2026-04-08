@@ -9,6 +9,7 @@ import {
   fetchChatsApi,
   fetchReactionCatalogApi,
   fetchMessagesApi,
+  markChatReadApi,
   removeMessageReactionApi,
   setMessageReactionApi,
   sendMessageApi,
@@ -47,10 +48,24 @@ export const useChatsStore = defineStore('chats', () => {
   const rootUsersChatsSearch = ref('')
   const selectedRootUserId = ref<number | null>(null)
   const rootUserChats = ref<RootManagedChatItem[]>([])
+  const lastMarkedReadByChat = ref<Record<number, number>>({})
+  const chatIdsWithRecentIncomingUnreadBump = new Set<number>()
 
   const selectedChat = computed(() =>
     chats.value.find((c) => c.id === selectedChatId.value) ?? null,
   )
+
+  const totalUnreadCount = computed(() =>
+    chats.value.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0),
+  )
+
+  function patchChatUnread(chatId: number, unreadCount: number) {
+    const idx = chats.value.findIndex((c) => c.id === chatId)
+    if (idx < 0) return
+    const current = chats.value[idx]
+    if (!current) return
+    chats.value[idx] = { ...current, unreadCount }
+  }
 
   function moveChatToTop(chatId: number) {
     const idx = chats.value.findIndex((c) => c.id === chatId)
@@ -95,7 +110,26 @@ export const useChatsStore = defineStore('chats', () => {
   }
 
   async function fetchChats() {
-    chats.value = await fetchChatsApi()
+    const fetched = await fetchChatsApi()
+    const prevById = new Map(chats.value.map((c) => [c.id, c]))
+    chats.value = fetched.map((f) => {
+      const prev = prevById.get(f.id)
+      if (
+        prev !== undefined &&
+        chatIdsWithRecentIncomingUnreadBump.has(f.id) &&
+        prev.unreadCount > f.unreadCount
+      ) {
+        return { ...f, unreadCount: prev.unreadCount }
+      }
+      if (
+        prev !== undefined &&
+        chatIdsWithRecentIncomingUnreadBump.has(f.id) &&
+        f.unreadCount >= prev.unreadCount
+      ) {
+        chatIdsWithRecentIncomingUnreadBump.delete(f.id)
+      }
+      return f
+    })
   }
 
   async function fetchMessages(chatId: number) {
@@ -110,6 +144,7 @@ export const useChatsStore = defineStore('chats', () => {
   async function selectChat(chatId: number) {
     selectedChatId.value = chatId
     await fetchMessages(chatId)
+    await markCurrentChatRead()
   }
 
   async function createChatWith(userId: number) {
@@ -251,12 +286,51 @@ export const useChatsStore = defineStore('chats', () => {
     messages.value = []
   }
 
+  async function markChatRead(chatId: number, messageId: number) {
+    chatIdsWithRecentIncomingUnreadBump.delete(chatId)
+    const currentMarked = lastMarkedReadByChat.value[chatId] ?? 0
+    if (currentMarked >= messageId) {
+      patchChatUnread(chatId, 0)
+      return
+    }
+    await markChatReadApi(chatId, messageId)
+    lastMarkedReadByChat.value = {
+      ...lastMarkedReadByChat.value,
+      [chatId]: messageId,
+    }
+    patchChatUnread(chatId, 0)
+  }
+
+  async function markCurrentChatRead() {
+    if (!selectedChatId.value) return
+    const lastMessage = messages.value[messages.value.length - 1]
+    if (!lastMessage) return
+    await markChatRead(selectedChatId.value, lastMessage.id)
+  }
+
   function applyMessageNew(payload: ChatMessage) {
     const exists = messages.value.some((m) => m.id === payload.id)
     if (selectedChatId.value === payload.chatId && !exists) {
       messages.value.push(payload)
     }
     updateChatLastMessage(payload.chatId, payload)
+    if (
+      currentUserId.value !== null &&
+      payload.senderId !== currentUserId.value &&
+      selectedChatId.value !== payload.chatId
+    ) {
+      chatIdsWithRecentIncomingUnreadBump.add(payload.chatId)
+      const idx = chats.value.findIndex((c) => c.id === payload.chatId)
+      if (idx >= 0) {
+        const current = chats.value[idx]
+        if (current) {
+          chats.value[idx] = {
+            ...current,
+            unreadCount: (current.unreadCount ?? 0) + 1,
+          }
+        }
+      }
+    }
   }
 
   function applyMessageUpdated(payload: {
@@ -293,6 +367,7 @@ export const useChatsStore = defineStore('chats', () => {
   }
 
   function applyChatDeleted(payload: { chatId: number }) {
+    chatIdsWithRecentIncomingUnreadBump.delete(payload.chatId)
     chats.value = chats.value.filter((c) => c.id !== payload.chatId)
     if (selectedChatId.value === payload.chatId) {
       selectedChatId.value = null
@@ -315,6 +390,28 @@ export const useChatsStore = defineStore('chats', () => {
     }
   }
 
+  function applyChatReadUpdated(payload: {
+    chatId: number
+    readerUserId: number
+    lastReadMessageId: number
+  }) {
+    if (payload.readerUserId === currentUserId.value) {
+      chatIdsWithRecentIncomingUnreadBump.delete(payload.chatId)
+      lastMarkedReadByChat.value = {
+        ...lastMarkedReadByChat.value,
+        [payload.chatId]: payload.lastReadMessageId,
+      }
+      patchChatUnread(payload.chatId, 0)
+      return
+    }
+    if (selectedChatId.value !== payload.chatId) return
+    messages.value = messages.value.map((m) =>
+      m.senderId === currentUserId.value && m.id <= payload.lastReadMessageId
+        ? { ...m, readByPeer: true }
+        : m,
+    )
+  }
+
   return {
     currentUserId,
     myLogin,
@@ -322,6 +419,7 @@ export const useChatsStore = defineStore('chats', () => {
     chats,
     selectedChatId,
     selectedChat,
+    totalUnreadCount,
     messages,
     isMessagesLoading,
     isSending,
@@ -355,11 +453,14 @@ export const useChatsStore = defineStore('chats', () => {
     saveEditMessage,
     deleteMessage,
     deleteChat,
+    markChatRead,
+    markCurrentChatRead,
     applyMessageNew,
     applyMessageUpdated,
     applyMessageDeleted,
     applyChatDeleted,
     applyMessageReactionsUpdated,
+    applyChatReadUpdated,
   }
 })
 
