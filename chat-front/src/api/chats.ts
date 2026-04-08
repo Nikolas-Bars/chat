@@ -60,7 +60,7 @@ export async function createDirectChatApi(userId: number): Promise<ChatItem> {
   return (await res.json()) as ChatItem
 }
 
-export async function sendMessageApi(chatId: number, content: string): Promise<void> {
+export async function sendMessageApi(chatId: number, content: string): Promise<ChatMessage> {
   const res = await fetch(apiUrl(`/chats/${chatId}/messages`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -68,6 +68,7 @@ export async function sendMessageApi(chatId: number, content: string): Promise<v
     body: JSON.stringify({ content }),
   })
   if (!res.ok) throw new Error(`Не удалось отправить сообщение (${res.status})`)
+  return (await res.json()) as ChatMessage
 }
 
 export async function fetchReactionCatalogApi(): Promise<string[]> {

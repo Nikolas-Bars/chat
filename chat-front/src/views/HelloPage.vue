@@ -45,12 +45,40 @@ const newReactionValue = ref('')
 const isRootUserDropdownOpen = ref(false)
 const isRootRoleDropdownOpen = ref(false)
 const selectedRoleUserId = ref<number | null>(null)
+const rootRoleDropdownRoot = ref<HTMLElement | null>(null)
+const rootChatsDropdownRoot = ref<HTMLElement | null>(null)
+let chatsRefreshTimer: number | null = null
+
+function closeRootDropdownsOnOutsideClick(ev: MouseEvent) {
+  const t = ev.target as Node | null
+  if (!t) return
+  if (!rootRoleDropdownRoot.value?.contains(t)) {
+    isRootRoleDropdownOpen.value = false
+  }
+  if (!rootChatsDropdownRoot.value?.contains(t)) {
+    isRootUserDropdownOpen.value = false
+  }
+}
+
+/** TypeORM всегда заполняет updated_at; «изменено» только если время правки позже создания. */
+function isMessageEdited(m: ChatMessage): boolean {
+  if (!m.updatedAt || !m.createdAt) return false
+  return new Date(m.updatedAt).getTime() > new Date(m.createdAt).getTime()
+}
 
 function getRealtimeBaseUrl(): string {
   const api = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
   if (api) return api.replace(/\/$/, '')
   const protocol = window.location.protocol === 'https:' ? 'https' : 'http'
   return `${protocol}://${window.location.hostname}:3000`
+}
+
+function scheduleChatsRefresh() {
+  if (chatsRefreshTimer !== null) return
+  chatsRefreshTimer = window.setTimeout(async () => {
+    chatsRefreshTimer = null
+    await chatsStore.fetchChats()
+  }, 150)
 }
 
 function connectRealtime() {
@@ -64,19 +92,16 @@ function connectRealtime() {
     // Не блокируем UI: realtime опционален, REST остаётся рабочим.
   })
   s.on('chat:updated', async () => {
-    await chatsStore.fetchChats()
+    scheduleChatsRefresh()
   })
   s.on('message:new', async (payload: ChatMessage) => {
     chatsStore.applyMessageNew(payload)
-    await chatsStore.fetchChats()
   })
   s.on('message:updated', async (payload: { id: number; chatId: number; content: string; updatedAt: string }) => {
     chatsStore.applyMessageUpdated(payload)
-    await chatsStore.fetchChats()
   })
   s.on('message:deleted', async (payload: { id: number; chatId: number }) => {
     chatsStore.applyMessageDeleted(payload)
-    await chatsStore.fetchChats()
   })
   s.on('chat:deleted', async (payload: { chatId: number }) => {
     chatsStore.applyChatDeleted(payload)
@@ -174,9 +199,10 @@ async function toggleReaction(messageId: number, value: string, reactedByMe: boo
   try {
     if (reactedByMe) {
       await chatsStore.removeMyReaction(messageId)
-      return
+    } else {
+      await chatsStore.setReaction(messageId, value)
     }
-    await chatsStore.setReaction(messageId, value)
+    reactionPickerMessageId.value = null
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Не удалось обновить реакцию'
   }
@@ -259,6 +285,7 @@ async function runRootRolesSearch() {
 }
 
 onMounted(async () => {
+  document.addEventListener('click', closeRootDropdownsOnOutsideClick, true)
   try {
     await chatsStore.fetchMe()
     await chatsStore.fetchReactionCatalog()
@@ -287,6 +314,11 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('click', closeRootDropdownsOnOutsideClick, true)
+  if (chatsRefreshTimer !== null) {
+    window.clearTimeout(chatsRefreshTimer)
+    chatsRefreshTimer = null
+  }
   socket.value?.disconnect()
   socket.value = null
 })
@@ -440,7 +472,7 @@ async function logout() {
 
       <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
         <div class="mb-2 text-xs text-slate-500">Управление ролями</div>
-        <div class="relative mb-2">
+        <div ref="rootRoleDropdownRoot" class="relative mb-2">
           <input
             v-model="rootUsersRolesSearch"
             class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900"
@@ -482,7 +514,7 @@ async function logout() {
 
       <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
         <div class="mb-2 text-xs text-slate-500">Восстановление удаленных чатов</div>
-        <div class="relative mb-2">
+        <div ref="rootChatsDropdownRoot" class="relative mb-2">
           <input
             v-model="rootUsersChatsSearch"
             class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900"
@@ -599,7 +631,7 @@ async function logout() {
             <div v-else>{{ m.content }}</div>
             <div class="mt-1 text-[10px] opacity-70">
               {{ new Date(m.createdAt).toLocaleString() }}
-              <span v-if="m.updatedAt"> · изменено</span>
+              <span v-if="isMessageEdited(m)"> · изменено</span>
             </div>
             <div class="mt-1 flex flex-wrap items-center gap-1">
               <button
