@@ -36,8 +36,8 @@ jobs:
       - name: Install & build
         working-directory: chat-front
         env:
-          # Имя репозитория = сегмент пути на Pages (репо chat → /chat/)
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # Для кастомного домена GitHub Pages нужен корневой base path.
+          VITE_BASE_PATH: /
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
           yarn install --frozen-lockfile

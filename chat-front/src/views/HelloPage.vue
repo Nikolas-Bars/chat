@@ -1,104 +1,36 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { io, type Socket } from 'socket.io-client'
-import { apiUrl } from '../api/config'
+import { storeToRefs } from 'pinia'
+import { logoutApi } from '../api/auth'
+import { type ChatMessage } from '../api/chats'
+import { useChatsStore } from '../stores/chats'
 
 const router = useRouter()
+const chatsStore = useChatsStore()
+const {
+  currentUserId,
+  myLogin,
+  chats,
+  selectedChatId,
+  selectedChat,
+  messages,
+  isMessagesLoading,
+  isSending,
+  search,
+  searchResults,
+  isSearching,
+} = storeToRefs(chatsStore)
+
 const isLoggingOut = ref(false)
 const errorMessage = ref('')
 const isBootLoading = ref(true)
-const currentUserId = ref<number | null>(null)
-const myLogin = ref('')
 const isSidebarOpen = ref(false)
-
-type ChatMessage = {
-  id: number
-  chatId: number
-  senderId: number
-  content: string
-  createdAt: string
-  updatedAt?: string
-}
-
-type ChatItem = {
-  id: number
-  peer: {
-    id: number
-    name: string
-    lastName: string
-    email: string
-  }
-  lastMessage: null | {
-    id: number
-    senderId: number
-    content: string
-    createdAt: string
-  }
-}
-
-type UserSearchItem = {
-  id: number
-  name: string
-  lastName: string
-  email: string
-}
-
-const chats = ref<ChatItem[]>([])
-const selectedChatId = ref<number | null>(null)
-const messages = ref<ChatMessage[]>([])
 const messageText = ref('')
-const isSending = ref(false)
-const search = ref('')
-const searchResults = ref<UserSearchItem[]>([])
-const isSearching = ref(false)
-const isMessagesLoading = ref(false)
 const socket = ref<Socket | null>(null)
 const editingMessageId = ref<number | null>(null)
 const editingText = ref('')
-
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('accessToken')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-const selectedChat = computed(() =>
-  chats.value.find((c) => c.id === selectedChatId.value) ?? null,
-)
-
-async function fetchMe() {
-  const res = await fetch(apiUrl('/auth/me'), {
-    headers: authHeaders(),
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error('Сессия недействительна')
-  const me = (await res.json()) as { userId: number; login?: string }
-  currentUserId.value = me.userId
-  myLogin.value = me.login ?? ''
-}
-
-async function fetchChats() {
-  const res = await fetch(apiUrl('/chats'), {
-    headers: authHeaders(),
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error(`Не удалось загрузить чаты (${res.status})`)
-  chats.value = (await res.json()) as ChatItem[]
-}
-
-async function fetchMessages(chatId: number) {
-  isMessagesLoading.value = true
-  try {
-    const res = await fetch(apiUrl(`/chats/${chatId}/messages`), {
-      headers: authHeaders(),
-      credentials: 'include',
-    })
-    if (!res.ok) throw new Error(`Не удалось загрузить сообщения (${res.status})`)
-    messages.value = (await res.json()) as ChatMessage[]
-  } finally {
-    isMessagesLoading.value = false
-  }
-}
 
 function getRealtimeBaseUrl(): string {
   const api = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
@@ -118,62 +50,34 @@ function connectRealtime() {
     // Не блокируем UI: realtime опционален, REST остаётся рабочим.
   })
   s.on('chat:updated', async () => {
-    await fetchChats()
+    await chatsStore.fetchChats()
   })
   s.on('message:new', async (payload: ChatMessage) => {
-    const exists = messages.value.some((m) => m.id === payload.id)
-    if (selectedChatId.value === payload.chatId && !exists) {
-      messages.value.push(payload)
-    }
-    await fetchChats()
+    chatsStore.applyMessageNew(payload)
+    await chatsStore.fetchChats()
   })
   s.on('message:updated', async (payload: { id: number; chatId: number; content: string; updatedAt: string }) => {
-    if (selectedChatId.value === payload.chatId) {
-      const idx = messages.value.findIndex((m) => m.id === payload.id)
-      if (idx >= 0) {
-        const current = messages.value[idx]
-        if (current) {
-          messages.value[idx] = { ...current, content: payload.content, updatedAt: payload.updatedAt }
-        }
-      }
-    }
-    await fetchChats()
+    chatsStore.applyMessageUpdated(payload)
+    await chatsStore.fetchChats()
   })
   s.on('message:deleted', async (payload: { id: number; chatId: number }) => {
-    if (selectedChatId.value === payload.chatId) {
-      messages.value = messages.value.filter((m) => m.id !== payload.id)
-    }
-    await fetchChats()
+    chatsStore.applyMessageDeleted(payload)
+    await chatsStore.fetchChats()
   })
   s.on('chat:deleted', async (payload: { chatId: number }) => {
-    chats.value = chats.value.filter((c) => c.id !== payload.chatId)
-    if (selectedChatId.value === payload.chatId) {
-      selectedChatId.value = null
-      messages.value = []
-    }
+    chatsStore.applyChatDeleted(payload)
   })
   socket.value = s
 }
 
 async function selectChat(chatId: number) {
-  selectedChatId.value = chatId
-  await fetchMessages(chatId)
+  await chatsStore.selectChat(chatId)
   isSidebarOpen.value = false
 }
 
 async function createChatWith(userId: number) {
-  const res = await fetch(apiUrl('/chats'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    credentials: 'include',
-    body: JSON.stringify({ userId }),
-  })
-  if (!res.ok) throw new Error(`Не удалось создать чат (${res.status})`)
-  const chat = (await res.json()) as ChatItem
-  await fetchChats()
-  searchResults.value = []
-  search.value = ''
-  await selectChat(chat.id)
+  await chatsStore.createChatWith(userId)
+  isSidebarOpen.value = false
 }
 
 function toggleSidebar() {
@@ -181,42 +85,19 @@ function toggleSidebar() {
 }
 
 async function runSearch() {
-  const q = search.value.trim()
-  if (!q) {
-    searchResults.value = []
-    return
-  }
-  isSearching.value = true
   try {
-    const res = await fetch(apiUrl(`/users/search?query=${encodeURIComponent(q)}`), {
-      headers: authHeaders(),
-      credentials: 'include',
-    })
-    if (!res.ok) throw new Error(`Поиск недоступен (${res.status})`)
-    searchResults.value = (await res.json()) as UserSearchItem[]
-  } finally {
-    isSearching.value = false
+    await chatsStore.runSearch()
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Поиск недоступен'
   }
 }
 
 async function sendMessage() {
-  if (!selectedChatId.value) return
-  const content = messageText.value.trim()
-  if (!content) return
-  isSending.value = true
   try {
-    const res = await fetch(apiUrl(`/chats/${selectedChatId.value}/messages`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      credentials: 'include',
-      body: JSON.stringify({ content }),
-    })
-    if (!res.ok) throw new Error(`Не удалось отправить сообщение (${res.status})`)
+    await chatsStore.sendMessage(messageText.value)
     messageText.value = ''
-    await fetchMessages(selectedChatId.value)
-    await fetchChats()
-  } finally {
-    isSending.value = false
+  } catch (e) {
+    errorMessage.value = e instanceof Error ? e.message : 'Не удалось отправить сообщение'
   }
 }
 
@@ -232,21 +113,8 @@ function cancelEditMessage() {
 
 async function saveEditMessage(messageId: number) {
   try {
-    if (!selectedChatId.value) return
-    const content = editingText.value.trim()
-    if (!content) return
-    const res = await fetch(apiUrl(`/chats/${selectedChatId.value}/messages/${messageId}`), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      credentials: 'include',
-      body: JSON.stringify({ content }),
-    })
-    if (!res.ok) throw new Error(`Не удалось изменить сообщение (${res.status})`)
-    const updated = (await res.json()) as ChatMessage
-    const idx = messages.value.findIndex((m) => m.id === updated.id)
-    if (idx >= 0) messages.value[idx] = updated
+    await chatsStore.saveEditMessage(messageId, editingText.value)
     cancelEditMessage()
-    await fetchChats()
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Не удалось изменить сообщение'
   }
@@ -254,17 +122,9 @@ async function saveEditMessage(messageId: number) {
 
 async function deleteMessage(messageId: number) {
   try {
-    if (!selectedChatId.value) return
     const ok = window.confirm('Удалить это сообщение?')
     if (!ok) return
-    const res = await fetch(apiUrl(`/chats/${selectedChatId.value}/messages/${messageId}`), {
-      method: 'DELETE',
-      headers: authHeaders(),
-      credentials: 'include',
-    })
-    if (!res.ok) throw new Error(`Не удалось удалить сообщение (${res.status})`)
-    messages.value = messages.value.filter((m) => m.id !== messageId)
-    await fetchChats()
+    await chatsStore.deleteMessage(messageId)
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Не удалось удалить сообщение'
   }
@@ -272,19 +132,9 @@ async function deleteMessage(messageId: number) {
 
 async function deleteChat() {
   try {
-    if (!selectedChatId.value) return
-    const chatId = selectedChatId.value
     const ok = window.confirm('Удалить весь чат? Сообщения будут скрыты (soft delete).')
     if (!ok) return
-    const res = await fetch(apiUrl(`/chats/${chatId}`), {
-      method: 'DELETE',
-      headers: authHeaders(),
-      credentials: 'include',
-    })
-    if (!res.ok) throw new Error(`Не удалось удалить чат (${res.status})`)
-    chats.value = chats.value.filter((c) => c.id !== chatId)
-    selectedChatId.value = null
-    messages.value = []
+    await chatsStore.deleteChat()
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Не удалось удалить чат'
   }
@@ -292,8 +142,8 @@ async function deleteChat() {
 
 onMounted(async () => {
   try {
-    await fetchMe()
-    await fetchChats()
+    await chatsStore.fetchMe()
+    await chatsStore.fetchChats()
     if (chats.value[0]) {
       await selectChat(chats.value[0].id)
     }
@@ -322,13 +172,7 @@ async function logout() {
   errorMessage.value = ''
   isLoggingOut.value = true
   try {
-    const response = await fetch(apiUrl('/auth/logout'), {
-      method: 'POST',
-      credentials: 'include',
-    })
-    if (!response.ok) {
-      throw new Error(`Не удалось выйти (код ${response.status})`)
-    }
+    await logoutApi()
     localStorage.removeItem('accessToken')
     socket.value?.disconnect()
     await router.push('/login')
