@@ -19,6 +19,18 @@ export class ChatsRepository {
     });
   }
 
+  async findDirectByPairWithDeleted(
+    firstUserId: number,
+    secondUserId: number,
+  ): Promise<Chat | null> {
+    return this.chatRepo
+      .createQueryBuilder('c')
+      .withDeleted()
+      .where('c.first_user_id = :firstUserId', { firstUserId })
+      .andWhere('c.second_user_id = :secondUserId', { secondUserId })
+      .getOne();
+  }
+
   async createDirect(firstUserId: number, secondUserId: number): Promise<Chat> {
     const chat = this.chatRepo.create({ firstUserId, secondUserId });
     return this.chatRepo.save(chat);
@@ -28,6 +40,7 @@ export class ChatsRepository {
     return this.chatRepo
       .createQueryBuilder('c')
       .where('c.first_user_id = :userId OR c.second_user_id = :userId', { userId })
+      .andWhere('c.deleted_at IS NULL')
       .orderBy('c.updated_at', 'DESC')
       .getMany();
   }
@@ -38,6 +51,14 @@ export class ChatsRepository {
 
   async touch(chat: Chat): Promise<Chat> {
     return this.chatRepo.save(chat);
+  }
+
+  async softDeleteChat(chat: Chat): Promise<void> {
+    await this.chatRepo.softDelete(chat.id);
+  }
+
+  async restoreChat(chatId: number): Promise<void> {
+    await this.chatRepo.restore(chatId);
   }
 
   async createMessage(chatId: number, senderId: number, content: string): Promise<Message> {
@@ -52,6 +73,18 @@ export class ChatsRepository {
       take: limit,
     });
     return items.reverse();
+  }
+
+  async findMessageById(chatId: number, messageId: number): Promise<Message | null> {
+    return this.messageRepo.findOne({ where: { id: messageId, chatId } });
+  }
+
+  async saveMessage(message: Message): Promise<Message> {
+    return this.messageRepo.save(message);
+  }
+
+  async softDeleteMessage(message: Message): Promise<void> {
+    await this.messageRepo.softDelete(message.id);
   }
 
   async findLastMessagesByChatIds(chatIds: number[]): Promise<Map<number, Message>> {

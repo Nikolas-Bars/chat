@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   PrimaryGeneratedColumn,
   Unique,
@@ -24,5 +25,8 @@ export class Chat {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime', precision: 6 })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'datetime', precision: 6, nullable: true })
+  deletedAt: Date | null;
 }
 

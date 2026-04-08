@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   ParseIntPipe,
   Post,
   UseGuards,
@@ -13,6 +15,7 @@ import { JwtAuthGuard } from '../../auth/infrastructure/guards/jwt-auth.guard';
 import { ChatsService } from '../application/chats.service';
 import { CreateDirectChatInputDto } from './input-dto/create-direct-chat.input.dto';
 import { SendMessageInputDto } from './input-dto/send-message.input.dto';
+import { UpdateMessageInputDto } from './input-dto/update-message.input.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('chats')
@@ -47,6 +50,38 @@ export class ChatsController {
     @ExtractUserFromRequest() user: UserContextDto,
   ) {
     return this.chatsService.sendMessage(Number(user.userId), chatId, body.content);
+  }
+
+  @Patch(':chatId/messages/:messageId')
+  async updateMessage(
+    @Param('chatId', ParseIntPipe) chatId: number,
+    @Param('messageId', ParseIntPipe) messageId: number,
+    @Body() body: UpdateMessageInputDto,
+    @ExtractUserFromRequest() user: UserContextDto,
+  ) {
+    return this.chatsService.updateMessage(
+      Number(user.userId),
+      chatId,
+      messageId,
+      body.content,
+    );
+  }
+
+  @Delete(':chatId/messages/:messageId')
+  async deleteMessage(
+    @Param('chatId', ParseIntPipe) chatId: number,
+    @Param('messageId', ParseIntPipe) messageId: number,
+    @ExtractUserFromRequest() user: UserContextDto,
+  ): Promise<void> {
+    await this.chatsService.deleteMessage(Number(user.userId), chatId, messageId);
+  }
+
+  @Delete(':chatId')
+  async deleteChat(
+    @Param('chatId', ParseIntPipe) chatId: number,
+    @ExtractUserFromRequest() user: UserContextDto,
+  ): Promise<void> {
+    await this.chatsService.deleteChat(Number(user.userId), chatId);
   }
 }
 
