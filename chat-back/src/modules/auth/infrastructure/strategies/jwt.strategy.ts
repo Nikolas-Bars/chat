@@ -3,10 +3,11 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserContextDto } from '../../application/user-context.dto';
 import type { Response, Request } from 'express';
+import { UsersExternalService } from '../../../users/application/users-external.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor() {
+  constructor(private readonly usersExternalService: UsersExternalService) {
     super({
       // Извлекать токен из куки ИЛИ из Authorization header
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -27,11 +28,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!payload.sub) {
       throw new UnauthorizedException('Invalid token payload');
     }
+    const userId = Number(payload.sub);
+    const user = await this.usersExternalService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
     // Этот объект попадёт в req.user
     return {
-      userId: payload.sub,
-      login: payload.login, // смотря что добавлял в payload при login()
-      email: payload.email, // смотря что добавлял в payload при login()
+      userId: String(user.id),
+      login: user.name,
+      email: user.email,
+      role: user.role,
     };
   }
 }

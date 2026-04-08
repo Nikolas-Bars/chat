@@ -5,13 +5,21 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export async function fetchMeApi(): Promise<{ userId: number; login?: string }> {
+export async function fetchMeApi(): Promise<{
+  userId: number
+  login?: string
+  role: 'root' | 'admin' | 'user'
+}> {
   const res = await fetch(apiUrl('/auth/me'), {
     headers: authHeaders(),
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Сессия недействительна')
-  return (await res.json()) as { userId: number; login?: string }
+  return (await res.json()) as {
+    userId: number
+    login?: string
+    role: 'root' | 'admin' | 'user'
+  }
 }
 
 export async function logoutApi(): Promise<void> {

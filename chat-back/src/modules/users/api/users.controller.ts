@@ -2,6 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseIntPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -12,6 +15,10 @@ import { UsersService } from '../application/users.service';
 import { JwtAuthGuard } from '../../auth/infrastructure/guards/jwt-auth.guard';
 import { ExtractUserFromRequest } from '../../auth/decorators/extract-user-from-request.decorator';
 import { UserContextDto } from '../../auth/application/user-context.dto';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { RolesGuard } from '../../auth/infrastructure/guards/roles.guard';
+import { UserRole } from '../domain/user-role.enum';
+import { UpdateUserRoleInputDto } from './input-dto/update-user-role.input.dto';
 
 @Controller('users')
 export class UsersController {
@@ -23,8 +30,14 @@ export class UsersController {
   }
 
   @Get()
-  async findAll(): Promise<UserViewDto[]> {
-    return this.usersService.findAll();
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ROOT)
+  async findAll(
+    @Query('query') query?: string,
+    @Query('limit') limitRaw?: string,
+  ): Promise<UserViewDto[]> {
+    const limit = Math.min(Math.max(Number(limitRaw ?? 5) || 5, 1), 50);
+    return this.usersService.findForAdminPanel(query ?? '', limit);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -43,6 +56,18 @@ export class UsersController {
       name: u.name,
       lastName: u.lastName,
       email: u.email,
+      role: u.role,
     }));
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ROOT)
+  @Patch(':userId/role')
+  async updateRole(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() body: UpdateUserRoleInputDto,
+  ): Promise<UserViewDto> {
+    const updated = await this.usersService.updateRole(userId, body.role);
+    return UserViewDto.fromEntity(updated);
   }
 }

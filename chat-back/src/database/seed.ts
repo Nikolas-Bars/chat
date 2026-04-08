@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import * as bcrypt from 'bcrypt';
 import AppDataSource from './data-source';
 import { User } from '../modules/users/domain/user.entity';
+import { UserRole } from '../modules/users/domain/user-role.enum';
 
 /** Локальные тестовые пользователи; пароль у всех одинаковый: password123 */
 const SEED_USERS: Array<{
@@ -13,6 +14,7 @@ const SEED_USERS: Array<{
   jobTitle: string | null;
   company: string | null;
   plainPassword: string;
+  role: UserRole;
 }> = [
   {
     email: 'alice@local.dev',
@@ -23,6 +25,7 @@ const SEED_USERS: Array<{
     jobTitle: 'Developer',
     company: 'Local',
     plainPassword: 'password123',
+    role: UserRole.USER,
   },
   {
     email: 'bob@local.dev',
@@ -33,6 +36,7 @@ const SEED_USERS: Array<{
     jobTitle: null,
     company: null,
     plainPassword: 'password123',
+    role: UserRole.USER,
   },
 ];
 
@@ -59,6 +63,7 @@ async function run(): Promise<void> {
           emailConfirmationCode: null,
           emailConfirmationExpiresAt: null,
           isEmailConfirmed: true,
+          role: row.role,
         }),
       );
       console.log(`[seed] created user ${row.email}`);
