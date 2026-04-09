@@ -56,6 +56,18 @@ const rootChatsDropdownRoot = ref<HTMLElement | null>(null)
 let chatsRefreshTimer: number | null = null
 const lastMessageNewAtByChatId = new Map<number, number>()
 const messagesScrollRoot = ref<HTMLElement | null>(null)
+const messagesEndAnchor = ref<HTMLElement | null>(null)
+
+/** Пользователь «внизу», если до низа меньше порога — тогда новые сообщения подтягиваем. */
+const MESSAGE_STICKY_THRESHOLD_PX = 96
+const messagesStickToBottom = ref(true)
+
+function onMessagesScroll() {
+  const el = messagesScrollRoot.value
+  if (!el) return
+  const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+  messagesStickToBottom.value = distance <= MESSAGE_STICKY_THRESHOLD_PX
+}
 
 watch(
   totalUnreadCount,
@@ -65,19 +77,58 @@ watch(
   { immediate: true },
 )
 
+/** После nextTick scrollHeight ещё часто «старый» — якорь + второй кадр даёт актуальный layout. */
 function scrollMessagesToBottom() {
-  const el = messagesScrollRoot.value
-  if (!el) return
-  el.scrollTop = el.scrollHeight
+  const root = messagesScrollRoot.value
+  const anchor = messagesEndAnchor.value
+  const apply = () => {
+    if (anchor) {
+      anchor.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'auto' })
+    }
+    if (root) {
+      root.scrollTop = root.scrollHeight
+    }
+  }
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        apply()
+        requestAnimationFrame(apply)
+      })
+    })
+  })
 }
+
+watch(selectedChatId, () => {
+  messagesStickToBottom.value = true
+})
 
 watch(
   [selectedChatId, isMessagesLoading],
   ([chatId, loading]) => {
     if (!chatId || loading) return
-    nextTick(() => {
-      requestAnimationFrame(() => scrollMessagesToBottom())
-    })
+    scrollMessagesToBottom()
+  },
+  { flush: 'post' },
+)
+
+watch(
+  () => messages.value.map((m) => m.id).join(','),
+  () => {
+    if (!selectedChatId.value || isMessagesLoading.value) return
+    if (!messagesStickToBottom.value) return
+    scrollMessagesToBottom()
+  },
+  { flush: 'post' },
+)
+
+watch(
+  reactionPickerMessageId,
+  (id) => {
+    if (id === null) return
+    const last = messages.value[messages.value.length - 1]
+    if (last?.id !== id || !messagesStickToBottom.value) return
+    scrollMessagesToBottom()
   },
   { flush: 'post' },
 )
@@ -91,6 +142,19 @@ function closeRootDropdownsOnOutsideClick(ev: MouseEvent) {
   if (!rootChatsDropdownRoot.value?.contains(t)) {
     isRootUserDropdownOpen.value = false
   }
+}
+
+function closeReactionPickerOnOutsideClick(ev: MouseEvent) {
+  if (reactionPickerMessageId.value === null) return
+  const t = ev.target as HTMLElement | null
+  if (!t) return
+  if (t.closest('[data-reaction-picker-scope]')) return
+  reactionPickerMessageId.value = null
+}
+
+function onDocumentClickCapture(ev: MouseEvent) {
+  closeRootDropdownsOnOutsideClick(ev)
+  closeReactionPickerOnOutsideClick(ev)
 }
 
 /** TypeORM всегда заполняет updated_at; «изменено» только если время правки позже создания. */
@@ -197,6 +261,8 @@ async function sendMessage() {
   try {
     await chatsStore.sendMessage(messageText.value)
     messageText.value = ''
+    messagesStickToBottom.value = true
+    scrollMessagesToBottom()
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Не удалось отправить сообщение'
   }
@@ -336,7 +402,7 @@ async function runRootRolesSearch() {
 }
 
 onMounted(async () => {
-  document.addEventListener('click', closeRootDropdownsOnOutsideClick, true)
+  document.addEventListener('click', onDocumentClickCapture, true)
   document.addEventListener(
     'pointerdown',
     () => {
@@ -371,7 +437,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   resetTabUnreadBadge()
-  document.removeEventListener('click', closeRootDropdownsOnOutsideClick, true)
+  document.removeEventListener('click', onDocumentClickCapture, true)
   if (chatsRefreshTimer !== null) {
     window.clearTimeout(chatsRefreshTimer)
     chatsRefreshTimer = null
@@ -747,7 +813,11 @@ async function logout() {
           </div>
         </div>
 
-        <div ref="messagesScrollRoot" class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+        <div
+          ref="messagesScrollRoot"
+          class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
+          @scroll.passive="onMessagesScroll"
+        >
           <div v-if="isMessagesLoading" class="text-sm text-slate-500">Загрузка сообщений...</div>
           <div
             v-for="m in messages"
@@ -785,39 +855,41 @@ async function logout() {
                 · прочитано
               </span>
             </div>
-            <div class="mt-1 flex flex-wrap items-center gap-1">
-              <button
-                v-for="r in m.reactions ?? []"
-                :key="`${m.id}-${r.value}`"
-                class="rounded-full border px-2 py-0.5 text-[11px]"
-                :class="
-                  r.reactedByMe
-                    ? 'border-emerald-500 bg-emerald-500/20'
-                    : 'border-slate-300 dark:border-slate-600'
-                "
-                @click="toggleReaction(m.id, r.value, r.reactedByMe)"
+            <div data-reaction-picker-scope class="mt-1">
+              <div class="flex flex-wrap items-center gap-1">
+                <button
+                  v-for="r in m.reactions ?? []"
+                  :key="`${m.id}-${r.value}`"
+                  class="rounded-full border px-2 py-0.5 text-[11px]"
+                  :class="
+                    r.reactedByMe
+                      ? 'border-emerald-500 bg-emerald-500/20'
+                      : 'border-slate-300 dark:border-slate-600'
+                  "
+                  @click="toggleReaction(m.id, r.value, r.reactedByMe)"
+                >
+                  {{ r.value }}<span v-if="r.count > 1"> {{ r.count }}</span>
+                </button>
+                <button
+                  class="rounded-full border border-slate-300 px-2 py-0.5 text-[11px] dark:border-slate-600"
+                  @click="toggleReactionPicker(m.id)"
+                >
+                  +
+                </button>
+              </div>
+              <div
+                v-if="reactionPickerMessageId === m.id"
+                class="mt-1 flex flex-wrap gap-1 rounded-xl border border-slate-200 p-2 dark:border-slate-700"
               >
-                {{ r.value }}<span v-if="r.count > 1"> {{ r.count }}</span>
-              </button>
-              <button
-                class="rounded-full border border-slate-300 px-2 py-0.5 text-[11px] dark:border-slate-600"
-                @click="toggleReactionPicker(m.id)"
-              >
-                +
-              </button>
-            </div>
-            <div
-              v-if="reactionPickerMessageId === m.id"
-              class="mt-1 flex flex-wrap gap-1 rounded-xl border border-slate-200 p-2 dark:border-slate-700"
-            >
-              <button
-                v-for="value in reactionCatalog"
-                :key="`${m.id}-catalog-${value}`"
-                class="rounded-md border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
-                @click="toggleReaction(m.id, value, false)"
-              >
-                {{ value }}
-              </button>
+                <button
+                  v-for="value in reactionCatalog"
+                  :key="`${m.id}-catalog-${value}`"
+                  class="rounded-md border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+                  @click="toggleReaction(m.id, value, false)"
+                >
+                  {{ value }}
+                </button>
+              </div>
             </div>
             <div
               v-if="m.senderId === currentUserId && editingMessageId !== m.id"
@@ -827,6 +899,11 @@ async function logout() {
               <button class="opacity-80 hover:opacity-100" @click="deleteMessage(m.id)">Удалить</button>
             </div>
           </div>
+          <div
+            ref="messagesEndAnchor"
+            class="pointer-events-none h-px w-full shrink-0"
+            aria-hidden="true"
+          />
         </div>
 
         <form class="mt-3 flex gap-2" @submit.prevent="sendMessage">

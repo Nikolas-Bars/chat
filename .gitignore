@@ -3,3 +3,6 @@
 deploy/.github_actions_vps_key
 deploy/.github_actions_vps_key.pub
 deploy/.env.prod
+
+.DS_Store
+**/.DS_Store
