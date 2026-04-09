@@ -446,6 +446,19 @@ onUnmounted(() => {
   socket.value = null
 })
 
+function peerInitials(name: string, lastName: string): string {
+  return ((name?.[0] ?? '') + (lastName?.[0] ?? '')).toUpperCase() || '?'
+}
+
+const avatarColors = [
+  'bg-indigo-500', 'bg-rose-500', 'bg-amber-500', 'bg-emerald-500',
+  'bg-cyan-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500',
+]
+
+function avatarColor(id: number): string {
+  return avatarColors[id % avatarColors.length]!
+}
+
 async function logout() {
   errorMessage.value = ''
   isLoggingOut.value = true
@@ -468,37 +481,43 @@ async function logout() {
 
 <template>
   <div class="relative">
-    <div class="mb-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <!-- ─── top bar ─── -->
+    <div class="mb-4 flex items-center justify-between rounded-2xl border border-slate-200/60 bg-white/80 px-4 py-2.5 shadow-lg shadow-slate-200/30 backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/80 dark:shadow-slate-950/40">
       <div class="flex items-center gap-3">
         <button
           type="button"
-          class="relative rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+          class="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           @click="toggleSidebar"
         >
-          ☰
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
           <span
             v-if="totalUnreadCount > 0"
-            class="absolute -right-1 -top-1 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white"
+            class="absolute -right-0.5 -top-0.5 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-slate-900"
           >
             {{ totalUnreadCount > 99 ? '99+' : totalUnreadCount }}
           </span>
         </button>
-        <div class="text-sm text-slate-500 dark:text-slate-400">Мой логин:</div>
-        <div class="text-sm font-semibold">{{ myLogin || '—' }} ({{ myRole }})</div>
+        <div class="flex items-center gap-2">
+          <div class="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400">
+            {{ (myLogin?.[0] ?? '?').toUpperCase() }}
+          </div>
+          <div class="text-sm font-medium">{{ myLogin || '—' }}</div>
+          <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ myRole }}</span>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <button
           v-if="myRole === 'root'"
           type="button"
-          class="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+          class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           @click="toggleRootPanel"
         >
-          ⚙
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.646.87a6.47 6.47 0 0 1 .578.338c.307.21.682.272 1.04.163l1.22-.394c.523-.169 1.09.033 1.364.5l1.297 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.886a1.128 1.128 0 0 0-.377.9v.676c0 .332.134.65.377.9l1.003.886c.408.36.518.922.26 1.431l-1.297 2.247a1.125 1.125 0 0 1-1.364.5l-1.22-.394c-.358-.11-.733-.047-1.04.162a6.6 6.6 0 0 1-.578.338c-.333.185-.583.496-.646.87l-.213 1.282c-.09.542-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.212-1.282a1.13 1.13 0 0 0-.646-.87 6.5 6.5 0 0 1-.578-.337c-.307-.21-.682-.273-1.04-.163l-1.22.394a1.125 1.125 0 0 1-1.365-.5l-1.296-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.886c.242-.2.377-.518.377-.9v-.676c0-.38-.134-.699-.377-.9l-1.004-.886a1.125 1.125 0 0 1-.26-1.43l1.297-2.248a1.125 1.125 0 0 1 1.364-.499l1.22.393c.358.11.733.048 1.04-.163a6.5 6.5 0 0 1 .578-.337 1.13 1.13 0 0 0 .646-.87l.213-1.282Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
         </button>
         <button
           type="button"
           :disabled="isLoggingOut"
-          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
           @click="logout"
         >
           {{ isLoggingOut ? 'Выход…' : 'Выйти' }}
@@ -506,117 +525,149 @@ async function logout() {
       </div>
     </div>
 
-    <div
-      v-if="isSidebarOpen"
-      class="fixed inset-0 z-20 bg-black/40"
-      @click="isSidebarOpen = false"
-    />
+    <!-- ─── sidebar backdrop ─── -->
+    <Transition name="fade">
+      <div
+        v-if="isSidebarOpen"
+        class="fixed inset-0 z-20 bg-black/30 backdrop-blur-sm"
+        @click="isSidebarOpen = false"
+      />
+    </Transition>
 
+    <!-- ─── sidebar ─── -->
     <aside
-      class="fixed inset-y-0 left-0 z-30 w-[320px] overflow-y-auto border-r border-slate-200 bg-white p-4 shadow-xl transition-transform dark:border-slate-800 dark:bg-slate-900"
+      class="fixed inset-y-0 left-0 z-30 flex w-[320px] flex-col border-r border-slate-200/60 bg-white/95 shadow-2xl backdrop-blur transition-transform duration-300 ease-out dark:border-slate-700/60 dark:bg-slate-900/95"
       :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
     >
-      <div class="mb-3 flex items-center justify-between">
-        <h1 class="text-lg font-semibold">Чаты</h1>
-        <button class="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100" @click="isSidebarOpen = false">✕</button>
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+        <h1 class="text-base font-bold tracking-tight">Чаты</h1>
+        <button
+          class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          @click="isSidebarOpen = false"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
 
-      <div class="mb-3">
-        <input
-          v-model="search"
-          class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
-          placeholder="Поиск пользователей"
-          @input="runSearch"
-        />
+      <div class="px-4 pt-4 pb-2">
+        <div class="relative">
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.35-4.35" /></svg>
+          <input
+            v-model="search"
+            class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:focus:border-indigo-500 dark:focus:bg-slate-900 dark:focus:ring-indigo-400/20"
+            placeholder="Поиск пользователей…"
+            @input="runSearch"
+          />
+        </div>
       </div>
 
       <div
         v-if="search.trim() && isSearching"
-        class="mb-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+        class="flex items-center gap-2 px-5 py-2 text-xs text-slate-500 dark:text-slate-400"
       >
-        <span
-          class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"
-          aria-hidden="true"
-        />
-        Ищем...
+        <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600 dark:border-indigo-700 dark:border-t-indigo-400" aria-hidden="true" />
+        Ищем…
       </div>
       <div
         v-else-if="search.trim() && !searchResults.length"
-        class="mb-3 text-xs text-slate-500 dark:text-slate-400"
+        class="px-5 py-2 text-xs text-slate-400 dark:text-slate-500"
       >
         Ничего не найдено
       </div>
-      <div v-else-if="searchResults.length" class="mb-4 space-y-2">
+      <div v-else-if="searchResults.length" class="space-y-1 px-4 pb-2">
         <button
           v-for="u in searchResults"
           :key="u.id"
-          class="w-full rounded-xl border border-slate-200 p-2 text-left text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+          class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
           @click="createChatWith(u.id)"
         >
-          <div class="font-medium">{{ u.name }} {{ u.lastName }}</div>
-          <div class="text-xs text-slate-500">{{ u.email }}</div>
+          <div
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            :class="avatarColor(u.id)"
+          >
+            {{ peerInitials(u.name, u.lastName) }}
+          </div>
+          <div class="min-w-0">
+            <div class="truncate text-sm font-medium">{{ u.name }} {{ u.lastName }}</div>
+            <div class="truncate text-xs text-slate-500">{{ u.email }}</div>
+          </div>
         </button>
       </div>
 
-      <div class="space-y-2">
+      <div class="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
         <button
           v-for="chat in chats"
           :key="chat.id"
-          class="w-full rounded-xl border p-3 text-left transition"
+          class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition"
           :class="
             selectedChatId === chat.id
-              ? 'border-slate-900 bg-slate-100 dark:border-slate-100 dark:bg-slate-800'
-              : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800'
+              ? 'bg-indigo-50 dark:bg-indigo-950/30'
+              : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
           "
           @click="selectChat(chat.id)"
         >
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium">
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm"
+            :class="avatarColor(chat.peer.id)"
+          >
+            {{ peerInitials(chat.peer.name, chat.peer.lastName) }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate text-sm font-semibold" :class="selectedChatId === chat.id ? 'text-indigo-700 dark:text-indigo-300' : ''">
                 {{ chat.peer.name }} {{ chat.peer.lastName }}
-              </div>
-              <div class="truncate text-xs text-slate-500">
-                {{ chat.lastMessage?.content ?? 'Нет сообщений' }}
-              </div>
+              </span>
+              <span
+                v-if="(chat.unreadCount ?? 0) > 0"
+                class="flex min-h-[1.25rem] min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold leading-none text-white"
+              >
+                {{ (chat.unreadCount ?? 0) > 99 ? '99+' : chat.unreadCount }}
+              </span>
             </div>
-            <span
-              v-if="(chat.unreadCount ?? 0) > 0"
-              class="flex min-h-[1.125rem] min-w-[1.125rem] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white"
-            >
-              {{ (chat.unreadCount ?? 0) > 99 ? '99+' : chat.unreadCount }}
-            </span>
+            <div class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+              {{ chat.lastMessage?.content ?? 'Нет сообщений' }}
+            </div>
           </div>
         </button>
       </div>
     </aside>
 
-    <div
-      v-if="isRootPanelOpen"
-      class="fixed inset-0 z-20 bg-black/40"
-      @click="isRootPanelOpen = false"
-    />
+    <!-- ─── root panel backdrop ─── -->
+    <Transition name="fade">
+      <div
+        v-if="isRootPanelOpen"
+        class="fixed inset-0 z-20 bg-black/30 backdrop-blur-sm"
+        @click="isRootPanelOpen = false"
+      />
+    </Transition>
 
+    <!-- ─── root panel ─── -->
     <aside
       v-if="myRole === 'root'"
-      class="fixed inset-y-0 right-0 z-30 w-[360px] overflow-y-auto border-l border-slate-200 bg-white p-4 shadow-xl transition-transform dark:border-slate-800 dark:bg-slate-900"
+      class="fixed inset-y-0 right-0 z-30 w-[380px] overflow-y-auto border-l border-slate-200/60 bg-white/95 p-5 shadow-2xl backdrop-blur transition-transform duration-300 ease-out dark:border-slate-700/60 dark:bg-slate-900/95"
       :class="isRootPanelOpen ? 'translate-x-0' : 'translate-x-full'"
     >
-      <div class="mb-3 flex items-center justify-between">
-        <h1 class="text-lg font-semibold">Панель root</h1>
-        <button class="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100" @click="isRootPanelOpen = false">✕</button>
+      <div class="mb-5 flex items-center justify-between">
+        <h1 class="text-base font-bold tracking-tight">Панель root</h1>
+        <button
+          class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          @click="isRootPanelOpen = false"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
 
-      <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
-        <div class="mb-2 text-xs text-slate-500">Добавить реакцию в общий каталог</div>
+      <div class="mb-5 rounded-xl border border-slate-200/60 bg-slate-50/50 p-3 dark:border-slate-700/60 dark:bg-slate-800/40">
+        <div class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Добавить реакцию в каталог</div>
         <div class="flex gap-2">
           <input
             v-model="newReactionValue"
-            class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
-            placeholder="Например: 🤖"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:focus:border-indigo-500 dark:focus:ring-indigo-400/20"
+            placeholder="🤖"
           />
           <button
             type="button"
-            class="rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            class="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
             @click="addReactionToCatalog"
           >
             Добавить
@@ -624,39 +675,37 @@ async function logout() {
         </div>
       </div>
 
-      <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
-        <div class="mb-2 text-xs text-slate-500">Управление ролями</div>
+      <div class="mb-5 rounded-xl border border-slate-200/60 bg-slate-50/50 p-3 dark:border-slate-700/60 dark:bg-slate-800/40">
+        <div class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Управление ролями</div>
         <div ref="rootRoleDropdownRoot" class="relative mb-2">
           <input
             v-model="rootUsersRolesSearch"
-            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900"
-            placeholder="Выбери пользователя для роли"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:focus:border-indigo-500 dark:focus:ring-indigo-400/20"
+            placeholder="Поиск пользователя…"
             @focus="isRootRoleDropdownOpen = true"
             @input="runRootRolesSearch"
           />
           <div
             v-if="isRootRoleDropdownOpen"
-            class="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            class="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200/80 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900"
           >
             <button
               v-for="u in rootUsersForRoles"
               :key="`role-pick-${u.id}`"
               type="button"
-              class="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+              class="block w-full rounded-lg px-2.5 py-1.5 text-left text-xs transition hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
               @click="pickRoleUser(u.id, `${u.name} ${u.lastName} (${u.email})`)"
             >
-              {{ u.name }} {{ u.lastName }} ({{ u.email }}) — {{ u.role }}
+              {{ u.name }} {{ u.lastName }} ({{ u.email }}) — <span class="font-semibold">{{ u.role }}</span>
             </button>
-            <div v-if="!rootUsersForRoles.length" class="px-2 py-1 text-xs text-slate-500">
-              Ничего не найдено
-            </div>
+            <div v-if="!rootUsersForRoles.length" class="px-2.5 py-1.5 text-xs text-slate-400">Ничего не найдено</div>
           </div>
         </div>
-        <div v-if="selectedRoleUserId" class="rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700">
+        <div v-if="selectedRoleUserId" class="rounded-lg border border-slate-200/60 bg-white p-2.5 text-xs dark:border-slate-700 dark:bg-slate-800">
           <div class="mb-1 text-slate-500">Новая роль</div>
           <select
             :value="rootUsersForRoles.find((u) => u.id === selectedRoleUserId)?.role ?? 'user'"
-            class="w-full rounded-md border border-slate-300 bg-white px-1 py-1 text-xs dark:border-slate-600 dark:bg-slate-900"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
             @change="onUserRoleChanged(selectedRoleUserId, $event)"
           >
             <option value="user">user</option>
@@ -666,54 +715,50 @@ async function logout() {
         </div>
       </div>
 
-      <div class="mb-4 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
-        <div class="mb-2 text-xs text-slate-500">Восстановление удаленных чатов</div>
+      <div class="mb-5 rounded-xl border border-slate-200/60 bg-slate-50/50 p-3 dark:border-slate-700/60 dark:bg-slate-800/40">
+        <div class="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Восстановление чатов</div>
         <div ref="rootChatsDropdownRoot" class="relative mb-2">
           <input
             v-model="rootUsersChatsSearch"
-            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900"
-            placeholder="Выбери пользователя (поиск)"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:focus:border-indigo-500 dark:focus:ring-indigo-400/20"
+            placeholder="Поиск пользователя…"
             @focus="isRootUserDropdownOpen = true"
             @input="runRootUsersSearch"
           />
           <div
             v-if="isRootUserDropdownOpen"
-            class="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            class="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200/80 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900"
           >
             <button
               v-for="u in rootUsersForChats"
               :key="`pick-${u.id}`"
               type="button"
-              class="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+              class="block w-full rounded-lg px-2.5 py-1.5 text-left text-xs transition hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
               @click="pickRootUser(u.id, `${u.name} ${u.lastName} (${u.email})`)"
             >
               {{ u.name }} {{ u.lastName }} ({{ u.email }})
             </button>
-            <div v-if="!rootUsersForChats.length" class="px-2 py-1 text-xs text-slate-500">
-              Ничего не найдено
-            </div>
+            <div v-if="!rootUsersForChats.length" class="px-2.5 py-1.5 text-xs text-slate-400">Ничего не найдено</div>
           </div>
         </div>
         <div v-if="selectedRootUserId" class="max-h-52 space-y-2 overflow-y-auto pr-1">
           <div
             v-for="chat in rootUserChats"
             :key="`root-chat-${chat.id}`"
-            class="rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700"
+            class="rounded-xl border border-slate-200/60 bg-white p-2.5 text-xs dark:border-slate-700 dark:bg-slate-800"
           >
-            <div class="font-medium">
-              {{ chat.peer.name }} {{ chat.peer.lastName }}
-            </div>
+            <div class="font-medium">{{ chat.peer.name }} {{ chat.peer.lastName }}</div>
             <div class="truncate text-slate-500">{{ chat.peer.email }}</div>
             <div class="mt-1 text-[11px]">
               Статус:
-              <span :class="chat.deletedAt ? 'text-red-500' : 'text-emerald-500'">
-                {{ chat.deletedAt ? 'удален' : 'активен' }}
+              <span :class="chat.deletedAt ? 'text-red-500' : 'text-emerald-500'" class="font-semibold">
+                {{ chat.deletedAt ? 'удалён' : 'активен' }}
               </span>
             </div>
             <button
               v-if="chat.deletedAt"
               type="button"
-              class="mt-2 rounded-md border border-emerald-500 px-2 py-0.5 text-[11px] text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+              class="mt-2 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-emerald-900/40"
               @click="restoreChatAsRoot(chat.id)"
             >
               Восстановить
@@ -721,7 +766,7 @@ async function logout() {
             <button
               v-else
               type="button"
-              class="mt-2 rounded-md border border-red-500 px-2 py-0.5 text-[11px] text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+              class="mt-2 rounded-lg bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700 transition hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-900/40"
               @click="deleteChatAsRoot(chat.id)"
             >
               Удалить
@@ -731,172 +776,222 @@ async function logout() {
       </div>
     </aside>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div v-if="isBootLoading" class="text-sm text-slate-500">Загружаем...</div>
+    <!-- ─── main content ─── -->
+    <section class="rounded-2xl border border-slate-200/60 bg-white/80 shadow-lg shadow-slate-200/30 backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/80 dark:shadow-slate-950/40">
+      <!-- boot loading -->
+      <div v-if="isBootLoading" class="flex items-center justify-center py-24">
+        <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600 dark:border-indigo-700 dark:border-t-indigo-400" aria-hidden="true" />
+      </div>
+
+      <!-- empty state -->
       <div
         v-else-if="!selectedChat"
-        class="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-2 text-center"
+        class="flex min-h-[60vh] flex-col items-center justify-center gap-5 px-4 py-12 text-center"
       >
-        <p class="max-w-md text-base text-slate-600 dark:text-slate-300">
-          Выберите чат в списке слева или найдите пользователя через поиск.
-        </p>
+        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-950/30">
+          <svg class="h-8 w-8 text-indigo-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
+        </div>
+        <div>
+          <p class="text-base font-semibold text-slate-700 dark:text-slate-300">Выберите чат</p>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Откройте список слева или найдите пользователя</p>
+        </div>
         <div class="w-full max-w-sm text-left">
-          <label class="mb-1 block text-xs text-slate-500 dark:text-slate-400">
-            Поиск пользователя
-          </label>
-          <input
-            v-model="search"
-            type="search"
-            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
-            placeholder="Имя, фамилия или email"
-            @input="runSearch"
-          />
+          <div class="relative">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.35-4.35" /></svg>
+            <input
+              v-model="search"
+              type="search"
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:focus:border-indigo-500 dark:focus:bg-slate-900 dark:focus:ring-indigo-400/20"
+              placeholder="Имя, фамилия или email"
+              @input="runSearch"
+            />
+          </div>
           <div v-if="search.trim()" class="mt-3">
             <div
               v-if="isSearching"
               class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"
             >
-              <span
-                class="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300"
-                aria-hidden="true"
-              />
-              Ищем...
+              <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600 dark:border-indigo-700 dark:border-t-indigo-400" aria-hidden="true" />
+              Ищем…
             </div>
             <div
               v-else-if="!searchResults.length"
-              class="text-sm text-slate-500 dark:text-slate-400"
+              class="text-sm text-slate-400 dark:text-slate-500"
             >
-              Ничего не найдено. Попробуйте другой запрос.
+              Ничего не найдено
             </div>
-            <div v-else class="max-h-60 space-y-2 overflow-y-auto rounded-xl border border-slate-200 p-2 dark:border-slate-800">
+            <div v-else class="max-h-60 space-y-1 overflow-y-auto rounded-xl border border-slate-200/60 p-2 dark:border-slate-700/60">
               <button
                 v-for="u in searchResults"
                 :key="`home-search-${u.id}`"
                 type="button"
-                class="w-full rounded-lg border border-slate-200 p-2 text-left text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                class="flex w-full items-center gap-3 rounded-lg p-2 text-left transition hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                 @click="createChatWith(u.id)"
               >
-                <div class="font-medium">{{ u.name }} {{ u.lastName }}</div>
-                <div class="text-xs text-slate-500">{{ u.email }}</div>
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  :class="avatarColor(u.id)"
+                >
+                  {{ peerInitials(u.name, u.lastName) }}
+                </div>
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-medium">{{ u.name }} {{ u.lastName }}</div>
+                  <div class="truncate text-xs text-slate-500">{{ u.email }}</div>
+                </div>
               </button>
             </div>
           </div>
         </div>
-        <p class="max-w-md text-xs text-slate-500 dark:text-slate-400">
-          После выбора чата переписка откроется здесь.
-        </p>
       </div>
-      <div v-else class="flex h-[70vh] flex-col">
-        <div class="mb-3 border-b border-slate-200 pb-3 dark:border-slate-800">
-          <div class="flex items-start justify-between gap-3">
+
+      <!-- ─── active chat ─── -->
+      <div v-else class="flex h-[75vh] flex-col">
+        <!-- chat header -->
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-800">
+          <div class="flex items-center gap-3">
+            <div
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm"
+              :class="avatarColor(selectedChat.peer.id)"
+            >
+              {{ peerInitials(selectedChat.peer.name, selectedChat.peer.lastName) }}
+            </div>
             <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="font-medium">
-                  {{ selectedChat.peer.name }} {{ selectedChat.peer.lastName }}
-                </span>
+              <div class="flex items-center gap-2">
+                <span class="font-semibold">{{ selectedChat.peer.name }} {{ selectedChat.peer.lastName }}</span>
                 <span
                   v-if="(selectedChat.unreadCount ?? 0) > 0"
-                  class="flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold leading-none text-white"
+                  class="flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold leading-none text-white"
                 >
                   {{ (selectedChat.unreadCount ?? 0) > 99 ? '99+' : selectedChat.unreadCount }}
                 </span>
               </div>
-              <div class="text-xs text-slate-500">{{ selectedChat.peer.email }}</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">{{ selectedChat.peer.email }}</div>
             </div>
-            <button
-              type="button"
-              class="rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
-              @click="deleteChat"
-            >
-              Удалить чат
-            </button>
           </div>
+          <button
+            type="button"
+            class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-500 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+            @click="deleteChat"
+          >
+            Удалить
+          </button>
         </div>
 
+        <!-- messages -->
         <div
           ref="messagesScrollRoot"
-          class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
+          class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4"
           @scroll.passive="onMessagesScroll"
         >
-          <div v-if="isMessagesLoading" class="text-sm text-slate-500">Загрузка сообщений...</div>
+          <div v-if="isMessagesLoading" class="flex justify-center py-8">
+            <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600 dark:border-indigo-700 dark:border-t-indigo-400" aria-hidden="true" />
+          </div>
           <div
             v-for="m in messages"
             :key="m.id"
-            class="max-w-[75%] rounded-2xl px-3 py-2 text-sm"
-            :class="
-              m.senderId === currentUserId
-                ? 'ml-auto bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                : 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
-            "
+            class="flex"
+            :class="m.senderId === currentUserId ? 'justify-end' : 'justify-start'"
           >
-            <div v-if="editingMessageId === m.id">
-              <textarea
-                v-model="editingText"
-                class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 outline-none ring-slate-300 focus:ring-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                rows="3"
-              />
-              <div class="mt-2 flex gap-2">
-                <button class="rounded-md bg-emerald-600 px-2 py-1 text-xs text-white" @click="saveEditMessage(m.id)">
-                  Сохранить
-                </button>
-                <button class="rounded-md border px-2 py-1 text-xs" @click="cancelEditMessage">
-                  Отмена
-                </button>
-              </div>
-            </div>
-            <div v-else>{{ m.content }}</div>
-            <div class="mt-1 text-[10px] opacity-70">
-              {{ new Date(m.createdAt).toLocaleString() }}
-              <span v-if="isMessageEdited(m)"> · изменено</span>
-              <span
-                v-if="m.senderId === currentUserId && m.readByPeer"
-                class="text-emerald-500 dark:text-emerald-400"
-              >
-                · прочитано
-              </span>
-            </div>
-            <div data-reaction-picker-scope class="mt-1">
-              <div class="flex flex-wrap items-center gap-1">
-                <button
-                  v-for="r in m.reactions ?? []"
-                  :key="`${m.id}-${r.value}`"
-                  class="rounded-full border px-2 py-0.5 text-[11px]"
-                  :class="
-                    r.reactedByMe
-                      ? 'border-emerald-500 bg-emerald-500/20'
-                      : 'border-slate-300 dark:border-slate-600'
-                  "
-                  @click="toggleReaction(m.id, r.value, r.reactedByMe)"
-                >
-                  {{ r.value }}<span v-if="r.count > 1"> {{ r.count }}</span>
-                </button>
-                <button
-                  class="rounded-full border border-slate-300 px-2 py-0.5 text-[11px] dark:border-slate-600"
-                  @click="toggleReactionPicker(m.id)"
-                >
-                  +
-                </button>
-              </div>
-              <div
-                v-if="reactionPickerMessageId === m.id"
-                class="mt-1 flex flex-wrap gap-1 rounded-xl border border-slate-200 p-2 dark:border-slate-700"
-              >
-                <button
-                  v-for="value in reactionCatalog"
-                  :key="`${m.id}-catalog-${value}`"
-                  class="rounded-md border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
-                  @click="toggleReaction(m.id, value, false)"
-                >
-                  {{ value }}
-                </button>
-              </div>
-            </div>
             <div
-              v-if="m.senderId === currentUserId && editingMessageId !== m.id"
-              class="mt-1 flex gap-2 text-[11px]"
+              class="max-w-[75%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm"
+              :class="
+                m.senderId === currentUserId
+                  ? 'rounded-br-md bg-indigo-600 text-white dark:bg-indigo-500'
+                  : 'rounded-bl-md bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
+              "
             >
-              <button class="opacity-80 hover:opacity-100" @click="startEditMessage(m)">Ред.</button>
-              <button class="opacity-80 hover:opacity-100" @click="deleteMessage(m.id)">Удалить</button>
+              <!-- editing -->
+              <div v-if="editingMessageId === m.id">
+                <textarea
+                  v-model="editingText"
+                  class="w-full rounded-lg border border-white/30 bg-white/20 px-2 py-1 text-sm text-inherit outline-none backdrop-blur focus:ring-2 focus:ring-white/30"
+                  rows="3"
+                />
+                <div class="mt-2 flex gap-2">
+                  <button class="rounded-md bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur transition hover:bg-white/30" @click="saveEditMessage(m.id)">Сохранить</button>
+                  <button class="rounded-md bg-white/10 px-2.5 py-1 text-xs transition hover:bg-white/20" @click="cancelEditMessage">Отмена</button>
+                </div>
+              </div>
+              <div v-else class="whitespace-pre-wrap break-words">{{ m.content }}</div>
+
+              <!-- meta -->
+              <div
+                class="mt-1.5 text-[10px]"
+                :class="m.senderId === currentUserId ? 'text-white/60' : 'text-slate-400 dark:text-slate-500'"
+              >
+                {{ new Date(m.createdAt).toLocaleString() }}
+                <span v-if="isMessageEdited(m)"> · изменено</span>
+                <span
+                  v-if="m.senderId === currentUserId && m.readByPeer"
+                  class="text-emerald-300"
+                >
+                  · прочитано
+                </span>
+              </div>
+
+              <!-- reactions -->
+              <div data-reaction-picker-scope class="mt-1.5">
+                <div class="flex flex-wrap items-center gap-1">
+                  <button
+                    v-for="r in m.reactions ?? []"
+                    :key="`${m.id}-${r.value}`"
+                    class="rounded-full border px-2 py-0.5 text-[11px] transition"
+                    :class="
+                      r.reactedByMe
+                        ? 'border-emerald-400/60 bg-emerald-500/20'
+                        : m.senderId === currentUserId
+                          ? 'border-white/20 hover:border-white/40'
+                          : 'border-slate-200 hover:border-slate-300 dark:border-slate-600 dark:hover:border-slate-500'
+                    "
+                    @click="toggleReaction(m.id, r.value, r.reactedByMe)"
+                  >
+                    {{ r.value }}<span v-if="r.count > 1"> {{ r.count }}</span>
+                  </button>
+                  <button
+                    class="rounded-full border px-2 py-0.5 text-[11px] transition"
+                    :class="
+                      m.senderId === currentUserId
+                        ? 'border-white/20 hover:border-white/40 hover:bg-white/10'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:hover:border-slate-500 dark:hover:bg-slate-700'
+                    "
+                    @click="toggleReactionPicker(m.id)"
+                  >
+                    +
+                  </button>
+                </div>
+                <div
+                  v-if="reactionPickerMessageId === m.id"
+                  class="mt-1.5 flex flex-wrap gap-1 rounded-xl border p-2"
+                  :class="
+                    m.senderId === currentUserId
+                      ? 'border-white/20 bg-white/10 backdrop-blur'
+                      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
+                  "
+                >
+                  <button
+                    v-for="value in reactionCatalog"
+                    :key="`${m.id}-catalog-${value}`"
+                    class="rounded-lg px-2 py-0.5 text-xs transition hover:scale-110"
+                    :class="
+                      m.senderId === currentUserId
+                        ? 'hover:bg-white/20'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                    "
+                    @click="toggleReaction(m.id, value, false)"
+                  >
+                    {{ value }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- actions -->
+              <div
+                v-if="m.senderId === currentUserId && editingMessageId !== m.id"
+                class="mt-1 flex gap-3 text-[11px] text-white/50"
+              >
+                <button class="transition hover:text-white/80" @click="startEditMessage(m)">Ред.</button>
+                <button class="transition hover:text-white/80" @click="deleteMessage(m.id)">Удалить</button>
+              </div>
             </div>
           </div>
           <div
@@ -906,28 +1001,44 @@ async function logout() {
           />
         </div>
 
-        <form class="mt-3 flex gap-2" @submit.prevent="sendMessage">
-          <input
-            v-model="messageText"
-            class="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-slate-300 focus:ring-2 dark:border-slate-700 dark:bg-slate-950 dark:ring-slate-700"
-            placeholder="Напиши сообщение..."
-          />
-          <button
-            type="submit"
-            :disabled="isSending || !messageText.trim()"
-            class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
-          >
-            {{ isSending ? '...' : 'Отправить' }}
-          </button>
-        </form>
+        <!-- message input -->
+        <div class="border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+          <form class="flex items-center gap-2" @submit.prevent="sendMessage">
+            <input
+              v-model="messageText"
+              class="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:focus:border-indigo-500 dark:focus:bg-slate-900 dark:focus:ring-indigo-400/20"
+              placeholder="Напишите сообщение…"
+            />
+            <button
+              type="submit"
+              :disabled="isSending || !messageText.trim()"
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+            >
+              <svg v-if="!isSending" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" /></svg>
+              <span v-else class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            </button>
+          </form>
+        </div>
       </div>
     </section>
   </div>
 
+  <!-- global error -->
   <div
     v-if="errorMessage"
-    class="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
+    class="mt-4 rounded-xl border border-red-200/80 bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
   >
     {{ errorMessage }}
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 200ms ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

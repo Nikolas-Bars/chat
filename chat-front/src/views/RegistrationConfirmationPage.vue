@@ -92,107 +92,94 @@ async function goRegister() {
 </script>
 
 <template>
-  <main class="confirm-page">
-    <div class="card">
-      <h1>Подтверждение email</h1>
+  <div class="grid min-h-[75dvh] place-items-center">
+    <div class="w-full max-w-md">
+      <div class="mb-8 text-center">
+        <div
+          class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-xl font-bold text-white shadow-lg shadow-indigo-500/30"
+        >
+          Q
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight">Подтверждение email</h1>
+      </div>
 
-      <template v-if="status === 'loading'">
-        <p class="muted">Отправляем код на сервер…</p>
-      </template>
-
-      <template v-else-if="status === 'success'">
-        <p class="success">{{ message }}</p>
-        <button type="button" @click="goLogin">Перейти ко входу</button>
-      </template>
-
-      <template v-else-if="status === 'error'">
-        <p class="error">{{ message }}</p>
-        <button class="secondary" type="button" @click="goRegister">
-          Зарегистрироваться снова
-        </button>
-        <button type="button" @click="goLogin">На страницу входа</button>
-      </template>
-
-      <template v-else>
-        <p class="muted">
-          Перейдите по ссылке из письма — подтверждение произойдёт автоматически.
-          Если открыли страницу без кода, вставьте UUID из письма:
-        </p>
-        <form class="manual" @submit.prevent="submitManual">
-          <label>
-            Код подтверждения
-            <input
-              v-model="manualCode"
-              type="text"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              autocomplete="off"
+      <div
+        class="rounded-2xl border border-slate-200/60 bg-white/80 p-6 shadow-xl shadow-slate-200/40 backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/80 dark:shadow-slate-950/50"
+      >
+        <template v-if="status === 'loading'">
+          <div class="flex items-center justify-center gap-3 py-6">
+            <span
+              class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600 dark:border-indigo-700 dark:border-t-indigo-400"
+              aria-hidden="true"
             />
-          </label>
-          <button type="submit">Подтвердить</button>
-        </form>
-      </template>
+            <span class="text-sm text-slate-500 dark:text-slate-400">Отправляем код на сервер…</span>
+          </div>
+        </template>
+
+        <template v-else-if="status === 'success'">
+          <div class="py-2">
+            <p class="rounded-xl border border-emerald-200/80 bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+              {{ message }}
+            </p>
+            <button
+              type="button"
+              class="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 active:scale-[0.98] dark:bg-indigo-500 dark:hover:bg-indigo-600"
+              @click="goLogin"
+            >
+              Перейти ко входу
+            </button>
+          </div>
+        </template>
+
+        <template v-else-if="status === 'error'">
+          <div class="py-2">
+            <p class="rounded-xl border border-red-200/80 bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+              {{ message }}
+            </p>
+            <div class="mt-4 flex gap-3">
+              <button
+                type="button"
+                class="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                @click="goRegister"
+              >
+                Регистрация
+              </button>
+              <button
+                type="button"
+                class="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 active:scale-[0.98] dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                @click="goLogin"
+              >
+                Войти
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+          <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
+            Перейдите по ссылке из письма — подтверждение произойдёт автоматически.
+            Или вставьте UUID-код вручную:
+          </p>
+          <form @submit.prevent="submitManual">
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Код подтверждения
+              <input
+                v-model="manualCode"
+                type="text"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                autocomplete="off"
+                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-indigo-500 dark:focus:bg-slate-900 dark:focus:ring-indigo-400/20"
+              />
+            </label>
+            <button
+              type="submit"
+              class="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition hover:bg-indigo-700 active:scale-[0.98] dark:bg-indigo-500 dark:hover:bg-indigo-600"
+            >
+              Подтвердить
+            </button>
+          </form>
+        </template>
+      </div>
     </div>
-  </main>
+  </div>
 </template>
-
-<style scoped>
-.confirm-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  font-family: Arial, sans-serif;
-  padding: 24px 12px;
-}
-
-.card {
-  width: min(100%, 420px);
-  display: grid;
-  gap: 16px;
-}
-
-h1 {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-.muted {
-  color: #555;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.manual {
-  display: grid;
-  gap: 12px;
-}
-
-label {
-  display: grid;
-  gap: 6px;
-  font-size: 0.9rem;
-}
-
-input {
-  padding: 8px;
-}
-
-button {
-  padding: 10px;
-  cursor: pointer;
-}
-
-.secondary {
-  background: transparent;
-  border: 1px solid #aaa;
-}
-
-.error {
-  color: #c52222;
-  margin: 0;
-}
-
-.success {
-  color: #1b6e1b;
-  margin: 0;
-}
-</style>
