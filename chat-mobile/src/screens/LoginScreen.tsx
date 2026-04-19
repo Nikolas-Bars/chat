@@ -45,16 +45,24 @@ export function LoginScreen({ navigation }: Props) {
       >
         <View style={styles.topActions}>
           <Pressable
-            style={[styles.themeBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            style={[styles.themeBtn, { backgroundColor: colors.surfaceMuted }]}
             onPress={() => void toggle()}
           >
-            <Text style={{ color: colors.text }}>
-              {resolvedTheme === 'dark' ? 'Светлая тема' : 'Темная тема'}
+            <Text style={[styles.themeBtnText, { color: colors.textMuted }]}>
+              {resolvedTheme === 'dark' ? '🌙' : '☀️'} {resolvedTheme === 'dark' ? 'Тёмная' : 'Светлая'}
             </Text>
           </Pressable>
         </View>
+
+        <View style={styles.logoWrap}>
+          <View style={styles.logo}>
+            <Text style={styles.logoText}>Q</Text>
+          </View>
+          <Text style={[styles.heading, { color: colors.text }]}>Добро пожаловать</Text>
+          <Text style={[styles.subheading, { color: colors.textMuted }]}>Войдите, чтобы продолжить</Text>
+        </View>
+
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Вход</Text>
           <Text style={[styles.label, { color: colors.textMuted }]}>Логин или email</Text>
           <TextInput
             style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surfaceMuted, color: colors.text }]}
@@ -64,6 +72,7 @@ export function LoginScreen({ navigation }: Props) {
             autoCapitalize="none"
             autoCorrect={false}
           />
+
           <Text style={[styles.label, { color: colors.textMuted }]}>Пароль</Text>
           <TextInput
             style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surfaceMuted, color: colors.text }]}
@@ -72,21 +81,37 @@ export function LoginScreen({ navigation }: Props) {
             onChangeText={setPassword}
             secureTextEntry
           />
+
           <Pressable
-            style={[styles.button, { backgroundColor: colors.surfaceStrong }, loading && styles.buttonDisabled]}
+            style={[styles.button, loading && styles.buttonDisabled]}
             onPress={onSubmit}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={[styles.buttonText, { color: colors.textInverse }]}>Войти</Text>
+              <Text style={styles.buttonText}>Войти</Text>
             )}
           </Pressable>
-          <Pressable style={styles.link} onPress={() => navigation.navigate('Register')}>
-            <Text style={[styles.linkText, { color: colors.textMuted }]}>Регистрация</Text>
+
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.textMuted }]}>или</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          <Pressable
+            style={[styles.secondaryButton, { borderColor: colors.border }]}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Создать аккаунт</Text>
           </Pressable>
-          {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+
+          {error ? (
+            <View style={[styles.errorBox, { backgroundColor: colors.dangerLight, borderColor: colors.danger }]}>
+              <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
+            </View>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -95,51 +120,62 @@ export function LoginScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#f8fafc',
-  },
-  topActions: { alignItems: 'flex-end', marginBottom: 12 },
-  themeBtn: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  card: {
-    backgroundColor: '#fff',
+  container: { flex: 1, justifyContent: 'center', padding: 24 },
+  topActions: { position: 'absolute', top: 16, right: 24, zIndex: 1 },
+  themeBtn: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  themeBtnText: { fontSize: 13, fontWeight: '500' },
+  logoWrap: { alignItems: 'center', marginBottom: 28 },
+  logo: {
+    width: 56,
+    height: 56,
     borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    backgroundColor: '#6366f1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  title: { fontSize: 22, fontWeight: '600', marginBottom: 16 },
-  label: { fontSize: 14, color: '#475569', marginBottom: 6 },
+  logoText: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  heading: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  subheading: { fontSize: 14, marginTop: 4 },
+  card: { borderRadius: 20, padding: 20, borderWidth: 1 },
+  label: { fontSize: 13, fontWeight: '500', marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 16,
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    marginBottom: 14,
   },
   button: {
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#6366f1',
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 4,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  link: { marginTop: 16, alignItems: 'center' },
-  linkText: { color: '#334155', fontSize: 15 },
-  error: {
-    marginTop: 12,
-    color: '#b91c1c',
-    fontSize: 14,
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 18 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { marginHorizontal: 12, fontSize: 12 },
+  secondaryButton: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
   },
+  secondaryButtonText: { fontWeight: '600', fontSize: 15 },
+  errorBox: { marginTop: 16, borderWidth: 1, borderRadius: 14, padding: 12 },
+  errorText: { fontSize: 14 },
 })

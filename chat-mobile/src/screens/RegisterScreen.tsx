@@ -19,7 +19,7 @@ import { useTheme } from '../context/ThemeContext'
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>
 
 export function RegisterScreen({ navigation }: Props) {
-  const { resolvedTheme, toggle, colors } = useTheme()
+  const { colors } = useTheme()
   const [name, setName] = useState('')
   const [lastName, setLastName] = useState('')
   const [age, setAge] = useState('')
@@ -75,58 +75,96 @@ export function RegisterScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
-        style={[styles.outer, { backgroundColor: colors.background }]}
+        style={{ flex: 1, backgroundColor: colors.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.topActions}>
-            <Pressable
-              style={[styles.themeBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              onPress={() => void toggle()}
-            >
-              <Text style={{ color: colors.text }}>
-                {resolvedTheme === 'dark' ? 'Светлая тема' : 'Темная тема'}
-              </Text>
-            </Pressable>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.logoWrap}>
+            <View style={styles.logo}>
+              <Text style={styles.logoText}>Q</Text>
+            </View>
+            <Text style={[styles.heading, { color: colors.text }]}>Создать аккаунт</Text>
+            <Text style={[styles.subheading, { color: colors.textMuted }]}>Заполните форму для регистрации</Text>
           </View>
+
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Регистрация</Text>
-          <Field label="Имя" value={name} onChangeText={setName} />
-          <Field label="Фамилия" value={lastName} onChangeText={setLastName} />
-          <Field label="Возраст" value={age} onChangeText={setAge} keyboardType="number-pad" />
-          <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
-          <Field label="Телефон" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-          <Field label="Пароль" value={password} onChangeText={setPassword} secure />
-          <Field
-            label="Пароль ещё раз"
-            value={passwordConfirm}
-            onChangeText={setPasswordConfirm}
-            secure
-          />
-          <Field label="Должность (необязательно)" value={jobTitle} onChangeText={setJobTitle} />
-          <Field label="Компания (необязательно)" value={company} onChangeText={setCompany} />
-          <Pressable
-            style={[styles.button, { backgroundColor: colors.surfaceStrong }, loading && styles.buttonDisabled]}
-            onPress={onSubmit}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.textInverse} />
-            ) : (
-              <Text style={[styles.buttonText, { color: colors.textInverse }]}>Зарегистрироваться</Text>
-            )}
-          </Pressable>
-          <Pressable style={styles.link} onPress={() => navigation.goBack()}>
-            <Text style={[styles.linkText, { color: colors.textMuted }]}>Назад к входу</Text>
-          </Pressable>
-            {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
-            {success ? <Text style={[styles.success, { color: colors.success }]}>{success}</Text> : null}
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Field label="Имя" value={name} onChangeText={setName} colors={colors} />
+              </View>
+              <View style={styles.halfField}>
+                <Field label="Фамилия" value={lastName} onChangeText={setLastName} colors={colors} />
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Field label="Возраст" value={age} onChangeText={setAge} keyboardType="number-pad" colors={colors} />
+              </View>
+              <View style={styles.halfField}>
+                <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" colors={colors} />
+              </View>
+            </View>
+            <Field label="Телефон" value={phone} onChangeText={setPhone} keyboardType="phone-pad" colors={colors} />
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Field label="Пароль (6–20)" value={password} onChangeText={setPassword} secure colors={colors} />
+              </View>
+              <View style={styles.halfField}>
+                <Field label="Повторите" value={passwordConfirm} onChangeText={setPasswordConfirm} secure colors={colors} />
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Field label="Должность" value={jobTitle} onChangeText={setJobTitle} placeholder="необязательно" colors={colors} />
+              </View>
+              <View style={styles.halfField}>
+                <Field label="Компания" value={company} onChangeText={setCompany} placeholder="необязательно" colors={colors} />
+              </View>
+            </View>
+
+            <Pressable
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={onSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Зарегистрироваться</Text>
+              )}
+            </Pressable>
+
+            <View style={styles.divider}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.textMuted }]}>или</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+
+            <Pressable
+              style={[styles.secondaryButton, { borderColor: colors.border }]}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Уже есть аккаунт — войти</Text>
+            </Pressable>
+
+            {success ? (
+              <View style={[styles.msgBox, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
+                <Text style={{ color: colors.success, fontSize: 14 }}>{success}</Text>
+              </View>
+            ) : null}
+            {error ? (
+              <View style={[styles.msgBox, { backgroundColor: colors.dangerLight, borderColor: colors.danger }]}>
+                <Text style={{ color: colors.danger, fontSize: 14 }}>{error}</Text>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
+
+type FieldColors = { border: string; surfaceMuted: string; text: string; textMuted: string }
 
 function Field({
   label,
@@ -135,6 +173,8 @@ function Field({
   secure,
   keyboardType,
   autoCapitalize,
+  placeholder,
+  colors,
 }: {
   label: string
   value: string
@@ -142,10 +182,11 @@ function Field({
   secure?: boolean
   keyboardType?: 'default' | 'number-pad' | 'phone-pad'
   autoCapitalize?: 'none' | 'sentences'
+  placeholder?: string
+  colors: FieldColors
 }) {
-  const { colors } = useTheme()
   return (
-    <View style={{ marginBottom: 10 }}>
+    <View style={{ marginBottom: 12 }}>
       <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
       <TextInput
         style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surfaceMuted, color: colors.text }]}
@@ -155,6 +196,7 @@ function Field({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize ?? 'sentences'}
         placeholderTextColor={colors.textMuted}
+        placeholder={placeholder}
       />
     </View>
   )
@@ -162,42 +204,59 @@ function Field({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  outer: { flex: 1, backgroundColor: '#f8fafc' },
-  container: { padding: 16, paddingBottom: 40 },
-  topActions: { alignItems: 'flex-end', marginBottom: 12 },
-  themeBtn: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  card: {
-    backgroundColor: '#fff',
+  scroll: { padding: 20, paddingBottom: 40 },
+  logoWrap: { alignItems: 'center', marginBottom: 24 },
+  logo: {
+    width: 56,
+    height: 56,
     borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    backgroundColor: '#6366f1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  title: { fontSize: 22, fontWeight: '600', marginBottom: 12 },
-  label: { fontSize: 13, color: '#475569', marginBottom: 4 },
+  logoText: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  heading: { fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  subheading: { fontSize: 14, marginTop: 4 },
+  card: { borderRadius: 20, padding: 20, borderWidth: 1 },
+  row: { flexDirection: 'row', gap: 12 },
+  halfField: { flex: 1 },
+  label: { fontSize: 13, fontWeight: '500', marginBottom: 5 },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 10,
-    fontSize: 16,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
   },
   button: {
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#6366f1',
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 4,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  link: { marginTop: 12, alignItems: 'center' },
-  linkText: { color: '#334155' },
-  error: { marginTop: 12, color: '#b91c1c' },
-  success: { marginTop: 12, color: '#15803d' },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { marginHorizontal: 12, fontSize: 12 },
+  secondaryButton: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  secondaryButtonText: { fontWeight: '600', fontSize: 15 },
+  msgBox: { marginTop: 16, borderWidth: 1, borderRadius: 14, padding: 12 },
 })

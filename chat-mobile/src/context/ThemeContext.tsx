@@ -11,12 +11,17 @@ type ThemeColors = {
   surfaceMuted: string
   surfaceStrong: string
   border: string
+  borderMuted: string
   text: string
   textMuted: string
   textInverse: string
   primary: string
+  primaryLight: string
+  primaryDark: string
   danger: string
+  dangerLight: string
   success: string
+  successLight: string
   badge: string
 }
 
@@ -32,21 +37,36 @@ const STORAGE_KEY = 'chat-mobile-theme-mode'
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 
+const AVATAR_COLORS = ['#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#a855f7', '#ec4899', '#14b8a6']
+
+export function avatarColor(id: number): string {
+  return AVATAR_COLORS[id % AVATAR_COLORS.length]!
+}
+
+export function peerInitials(name: string, lastName: string): string {
+  return ((name?.[0] ?? '') + (lastName?.[0] ?? '')).toUpperCase() || '?'
+}
+
 function getColors(theme: ResolvedTheme): ThemeColors {
   if (theme === 'dark') {
     return {
       background: '#020617',
       surface: '#0f172a',
-      surfaceMuted: '#111827',
-      surfaceStrong: '#1e293b',
+      surfaceMuted: '#1e293b',
+      surfaceStrong: '#334155',
       border: '#334155',
+      borderMuted: '#1e293b',
       text: '#f8fafc',
       textMuted: '#94a3b8',
       textInverse: '#020617',
-      primary: '#60a5fa',
+      primary: '#818cf8',
+      primaryLight: 'rgba(129,140,248,0.15)',
+      primaryDark: '#6366f1',
       danger: '#f87171',
+      dangerLight: 'rgba(248,113,113,0.12)',
       success: '#4ade80',
-      badge: '#f43f5e',
+      successLight: 'rgba(74,222,128,0.12)',
+      badge: '#6366f1',
     }
   }
 
@@ -54,15 +74,20 @@ function getColors(theme: ResolvedTheme): ThemeColors {
     background: '#f8fafc',
     surface: '#ffffff',
     surfaceMuted: '#f1f5f9',
-    surfaceStrong: '#0f172a',
+    surfaceStrong: '#e2e8f0',
     border: '#e2e8f0',
+    borderMuted: '#f1f5f9',
     text: '#0f172a',
     textMuted: '#64748b',
     textInverse: '#ffffff',
-    primary: '#2563eb',
-    danger: '#b91c1c',
-    success: '#15803d',
-    badge: '#e11d48',
+    primary: '#6366f1',
+    primaryLight: 'rgba(99,102,241,0.08)',
+    primaryDark: '#4f46e5',
+    danger: '#ef4444',
+    dangerLight: 'rgba(239,68,68,0.08)',
+    success: '#10b981',
+    successLight: 'rgba(16,185,129,0.08)',
+    badge: '#6366f1',
   }
 }
 

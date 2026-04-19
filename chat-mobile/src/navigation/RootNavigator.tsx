@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useAuth } from '../context/AuthContext'
 import { ChatProvider } from '../context/ChatContext'
+import { useTheme } from '../context/ThemeContext'
 import { ChatBootstrap } from '../components/ChatBootstrap'
 import { ChatSocketListener } from '../components/ChatSocketListener'
 import { LoginScreen } from '../screens/LoginScreen'
@@ -47,10 +48,11 @@ function MainNavigator() {
 
 export function RootNavigator() {
   const { token, loading } = useAuth()
+  const { colors } = useTheme()
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     )
   }
@@ -58,7 +60,7 @@ export function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 })
 
 export function AppNavigation() {
